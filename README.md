@@ -4,33 +4,31 @@ const handleSubmit = async (e) => {
 
   try {
     if (isRegister) {
-      // Register API with proper body (use JSON instead of query params)
-      const res = await axios.post(`${API_BASE}/register`, {
+      // Register API call
+      const response = await axios.post(`${API_BASE}/register`, {
         username,
-        email: `${username}@test.com`,  // identity requires email, so dummy email
+        email: `${username}@test.com`, // Provide dummy email
         password
       });
 
-      if (res.status === 200) {
-        alert("Registration successful! Please login.");
-        setIsRegister(false);
-      }
+      alert("Registration successful! Please login.");
+      setIsRegister(false);
     } else {
-      // Login API
-      const res = await axios.post(`${API_BASE}/login`, {
+      // Login API call
+      const response = await axios.post(`${API_BASE}/login`, {
         username,
         password
       });
 
-      if (res.data.token) {
-        localStorage.setItem("token", res.data.token);
+      if (response.data.token) {
+        localStorage.setItem("token", response.data.token);
         onLoginSuccess();
+      } else {
+        setError("Invalid login response. Please try again.");
       }
     }
   } catch (err) {
-    console.error(err);
-    setError(
-      err.response?.data || "Something went wrong. Please try again."
-    );
+    console.error("API error:", err);
+    setError(err.response?.data || "Something went wrong. Please try again.");
   }
 };
