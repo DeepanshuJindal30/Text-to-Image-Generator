@@ -1,264 +1,499 @@
-Got it! We'll build the frontend without react-router-dom and keep it simple (single-page app using conditional rendering).
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
+using PlanSential.Api.Models;
+using PlanSential.Api.Services;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace PlanSential.Api.Controllers
+{
+    [ApiController]
+    [Route("api/controller")]
+    public class AuthIdentityController : ControllerBase
+    {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly JwtService _jwtService;
+
+        public AuthIdentityController(UserManager<ApplicationUser> userManager, JwtService jwtService)
+        {
+            _userManager = userManager;
+            _jwtService = jwtService;
+        }
+
+        public class RegisterRequest
+        {
+            public string Username { get; set; }
+            public string Email { get; set; }
+            public string Password { get; set; }
+        }
+
+        public class LoginRequest
+        {
+            public string Username { get; set; }
+            public string Password { get; set; }
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest model)
+        {
+            if (string.IsNullOrWhiteSpace(model.Email))
+                return BadRequest("Email is required");
+
+            var user = new ApplicationUser
+            {
+                UserName = model.Username,
+                Email = model.Email,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(user, model.Password);
+
+            if (!result.Succeeded)
+                return BadRequest(result.Errors);
+
+            return Ok(new { message = "User registered successfully!" });
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest model)
+        {
+            var user = await _userManager.FindByNameAsync(model.Username);
+
+            if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
+                return BadRequest("Invalid username or password");
+
+            var token = _jwtService.GenerateToken(user);
+            return Ok(new { token });
+        }
+
+        [HttpGet("secure")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public IActionResult SecureEndpoint()
+        {
+            return Ok("You have accessed a protected route!");
+        }
+    }
+}
+
+
+
+
+
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: "http://localhost:5172/api",
+});
+
+export default api;
+import React, { useState } from "react";
+import {
+  Container,
+  TextField,
+  Button,
+  Typography,
+  Box,
+  Paper,
+} from "@mui/material";
+import api from "./api";
+
+function App() {
+  const [isRegister, setIsRegister] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(""); // Only for register
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleAuth = async () => {
+    try {
+      if (isRegister) {
+        await api.post("/controller/register", {
+          username,
+          email,
+          password,
+        });
+        setMessage("User registered successfully! Please login now.");
+        setIsRegister(false);
+      } else {
+        const res = await api.post("/controller/login", {
+          username,
+          password,
+        });
+        localStorage.setItem("token", res.data.token);
+        setMessage("Login successful!");
+      }
+    } catch (err) {
+      setMessage(err.response?.data || "Error occurred");
+    }
+  };
+
+  return (
+    <Container maxWidth="sm" sx={{ mt: 8 }}>
+      <Paper elevation={3} sx={{ p: 4 }}>
+        <Typography variant="h5" mb={2} align="center">
+          {isRegister ? "Register" : "Login"}
+        </Typography>
+
+        <TextField
+          label="Username"
+          fullWidth
+          margin="normal"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        {isRegister && (
+          <TextField
+            label="Email"
+            fullWidth
+            margin="normal"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        )}
+        <TextField
+          label="Password"
+          type="password"
+          fullWidth
+          margin="normal"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          sx={{ mt: 2 }}
+          onClick={handleAuth}
+        >
+          {isRegister ? "Register" : "Login"}
+        </Button>
+
+        <Button
+          fullWidth
+          variant="text"
+          sx={{ mt: 1 }}
+          onClick={() => setIsRegister(!isRegister)}
+        >
+          {isRegister
+            ? "Already have an account? Login"
+            : "Don't have an account? Register"}
+        </Button>
+
+        {message && (
+          <Box mt={2}>
+            <Typography color="error" align="center">
+              {message}
+            </Typography>
+          </Box>
+        )}
+      </Paper>
+    </Container>
+  );
+}
+
+export default App;
+
+
+
+
+
+...
+
+Great! Let’s add a Dashboard (token-protected) and display PLAN_INFO with alerts and notes using Material UI.
 
 
 ---
 
-1️⃣ Structure
+1️⃣ Frontend Structure
 
 frontend/
-├── public/
-│   └── index.html
 ├── src/
-│   ├── components/
-│   │   ├── Login.js
-│   │   ├── Register.js
-│   │   └── SecurePage.js
+│   ├── api.js
 │   ├── App.js
+│   ├── Dashboard.js      # New
+│   ├── LoginRegister.js  # Moved previous auth UI here
 │   ├── index.js
-└── package.json
-
-We’ll use Material-UI (MUI) for styling.
 
 
 ---
 
-2️⃣ Install required dependencies
+2️⃣ Frontend Code
 
-npm install @mui/material @emotion/react @emotion/styled axios
+src/LoginRegister.js
 
+import React, { useState } from "react";
+import {
+  Container,
+  TextField,
+  Button,
+  Typography,
+  Box,
+  Paper,
+} from "@mui/material";
+import api from "./api";
 
----
+function LoginRegister({ onLoginSuccess }) {
+  const [isRegister, setIsRegister] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(""); // Only for register
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
 
-3️⃣ Code
-
-index.js
-
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
-
-
----
-
-App.js
-
-import React, { useState } from 'react';
-import Login from './components/Login';
-import Register from './components/Register';
-import SecurePage from './components/SecurePage';
-
-export default function App() {
-  const [page, setPage] = useState('login');
-  const [token, setToken] = useState(null);
-
-  return (
-    <>
-      {page === 'login' && <Login setPage={setPage} setToken={setToken} />}
-      {page === 'register' && <Register setPage={setPage} />}
-      {page === 'secure' && <SecurePage token={token} setPage={setPage} />}
-    </>
-  );
-}
-
-
----
-
-components/Login.js
-
-import React, { useState } from 'react';
-import { Button, TextField, Card, CardContent, Typography } from '@mui/material';
-import axios from 'axios';
-
-export default function Login({ setPage, setToken }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleLogin = async () => {
+  const handleAuth = async () => {
     try {
-      const res = await axios.post('http://localhost:5172/api/controller/login', { username, password });
-      setToken(res.data.token);
-      setPage('secure');
+      if (isRegister) {
+        await api.post("/controller/register", {
+          username,
+          email,
+          password,
+        });
+        setMessage("User registered successfully! Please login now.");
+        setIsRegister(false);
+      } else {
+        const res = await api.post("/controller/login", {
+          username,
+          password,
+        });
+        localStorage.setItem("token", res.data.token);
+        setMessage("Login successful!");
+        onLoginSuccess();
+      }
     } catch (err) {
-      alert('Login failed');
+      setMessage(err.response?.data || "Error occurred");
     }
   };
 
   return (
-    <Card style={{ width: 400, margin: '100px auto', padding: 20 }}>
-      <CardContent>
-        <Typography variant="h5" align="center">Login</Typography>
-        <TextField fullWidth label="Username" margin="normal" onChange={e => setUsername(e.target.value)} />
-        <TextField fullWidth type="password" label="Password" margin="normal" onChange={e => setPassword(e.target.value)} />
-        <Button fullWidth variant="contained" color="primary" onClick={handleLogin}>Login</Button>
-        <Button fullWidth style={{ marginTop: 10 }} onClick={() => setPage('register')}>Go to Register</Button>
-      </CardContent>
-    </Card>
+    <Container maxWidth="sm" sx={{ mt: 8 }}>
+      <Paper elevation={3} sx={{ p: 4 }}>
+        <Typography variant="h5" mb={2} align="center">
+          {isRegister ? "Register" : "Login"}
+        </Typography>
+
+        <TextField
+          label="Username"
+          fullWidth
+          margin="normal"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        {isRegister && (
+          <TextField
+            label="Email"
+            fullWidth
+            margin="normal"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        )}
+        <TextField
+          label="Password"
+          type="password"
+          fullWidth
+          margin="normal"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          sx={{ mt: 2 }}
+          onClick={handleAuth}
+        >
+          {isRegister ? "Register" : "Login"}
+        </Button>
+
+        <Button
+          fullWidth
+          variant="text"
+          sx={{ mt: 1 }}
+          onClick={() => setIsRegister(!isRegister)}
+        >
+          {isRegister
+            ? "Already have an account? Login"
+            : "Don't have an account? Register"}
+        </Button>
+
+        {message && (
+          <Box mt={2}>
+            <Typography color="error" align="center">
+              {message}
+            </Typography>
+          </Box>
+        )}
+      </Paper>
+    </Container>
   );
 }
+
+export default LoginRegister;
 
 
 ---
 
-components/Register.js
+src/Dashboard.js
 
-import React, { useState } from 'react';
-import { Button, TextField, Card, CardContent, Typography } from '@mui/material';
-import axios from 'axios';
+import React, { useEffect, useState } from "react";
+import {
+  Container,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+} from "@mui/material";
+import api from "./api";
 
-export default function Register({ setPage }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleRegister = async () => {
-    try {
-      await axios.post('http://localhost:5172/api/controller/register', { username, password });
-      alert('Registered successfully!');
-      setPage('login');
-    } catch (err) {
-      alert('Registration failed');
-    }
-  };
-
-  return (
-    <Card style={{ width: 400, margin: '100px auto', padding: 20 }}>
-      <CardContent>
-        <Typography variant="h5" align="center">Register</Typography>
-        <TextField fullWidth label="Username" margin="normal" onChange={e => setUsername(e.target.value)} />
-        <TextField fullWidth type="password" label="Password" margin="normal" onChange={e => setPassword(e.target.value)} />
-        <Button fullWidth variant="contained" color="primary" onClick={handleRegister}>Register</Button>
-        <Button fullWidth style={{ marginTop: 10 }} onClick={() => setPage('login')}>Back to Login</Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-
----
-
-components/SecurePage.js
-
-import React, { useEffect, useState } from 'react';
-import { Button, Typography, Card, CardContent } from '@mui/material';
-import axios from 'axios';
-
-export default function SecurePage({ token, setPage }) {
-  const [message, setMessage] = useState('');
+function Dashboard({ onLogout }) {
+  const [plans, setPlans] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5172/api/controller/secure', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    .then(res => setMessage(res.data))
-    .catch(() => setMessage('Unauthorized'));
-  }, [token]);
+    const fetchPlans = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await api.get("/controller/secure", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Dummy data (replace with backend result)
+        setPlans([
+          {
+            MARKET_SEGMENT_ID: "A",
+            PLAN_NUM: "123456",
+            PLAN_NAME1: "Retirement Plan",
+            PLAN_STATUS: "Active",
+            VALUE_OF_PLAN_ASSETS: "$1,000,000",
+          },
+        ]);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchPlans();
+  }, []);
 
   return (
-    <Card style={{ width: 400, margin: '100px auto', padding: 20 }}>
-      <CardContent>
-        <Typography variant="h6">Secure Data</Typography>
-        <Typography>{message}</Typography>
-        <Button fullWidth style={{ marginTop: 10 }} onClick={() => setPage('login')}>Logout</Button>
-      </CardContent>
-    </Card>
+    <Container maxWidth="md" sx={{ mt: 8 }}>
+      <Typography variant="h4" align="center" gutterBottom>
+        Dashboard
+      </Typography>
+
+      <Button
+        variant="outlined"
+        color="error"
+        sx={{ mb: 3 }}
+        onClick={onLogout}
+      >
+        Logout
+      </Button>
+
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Market Segment</TableCell>
+              <TableCell>Plan Number</TableCell>
+              <TableCell>Plan Name</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Assets</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {plans.map((plan, idx) => (
+              <TableRow key={idx}>
+                <TableCell>{plan.MARKET_SEGMENT_ID}</TableCell>
+                <TableCell>{plan.PLAN_NUM}</TableCell>
+                <TableCell>{plan.PLAN_NAME1}</TableCell>
+                <TableCell>{plan.PLAN_STATUS}</TableCell>
+                <TableCell>{plan.VALUE_OF_PLAN_ASSETS}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Container>
   );
+}
+
+export default Dashboard;
+
+
+---
+
+src/App.js (Updated)
+
+import React, { useState } from "react";
+import LoginRegister from "./LoginRegister";
+import Dashboard from "./Dashboard";
+
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    !!localStorage.getItem("token")
+  );
+
+  const handleLogin = () => setIsLoggedIn(true);
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setIsLoggedIn(false);
+  };
+
+  return isLoggedIn ? (
+    <Dashboard onLogout={handleLogout} />
+  ) : (
+    <LoginRegister onLoginSuccess={handleLogin} />
+  );
+}
+
+export default App;
+
+
+---
+
+3️⃣ Backend Update (Dashboard Data)
+
+In AuthIdentityController.cs, update SecureEndpoint:
+
+[HttpGet("secure")]
+[Authorize]
+public IActionResult SecureEndpoint()
+{
+    // TODO: Fetch PLAN_INFO with joins (now just dummy)
+    var plans = new[]
+    {
+        new {
+            MARKET_SEGMENT_ID = "A",
+            PLAN_NUM = "123456",
+            PLAN_NAME1 = "Retirement Plan",
+            PLAN_STATUS = "Active",
+            VALUE_OF_PLAN_ASSETS = "$1,000,000"
+        }
+    };
+
+    return Ok(plans);
 }
 
 
 ---
 
-4️⃣ Run the frontend
+4️⃣ Run
 
-npm start
+Backend: dotnet run
 
+Frontend: npm start
 
----
-
-👉 This is fully working without react-router-dom (simple state-based page switching).
 
 
 ---
 
-⚡ Do you want me to add JWT storage (localStorage) and show username after login?
-Or should I combine frontend + backend in one zip (ready-to-run)?
-
-
-# IMAGINATE HUB
-
-Welcome to Imaginate Hub, a state-of-the-art image generation platform where imagination meets machine learning. Utilizing advanced models, this app offers a seamless experience for users to input prompts and visualize the resulting images.
-
-🚀 **Explore Live Application**: Dive into the Imaginate Hub experience right now! Check out the [Live Model Here](https://image-generator-app.streamlit.app/).
-
-![Imaginate Hub Screenshot](./imaginatehub_v2.png) 
-
-## Features
-
-- **User-friendly Interface**: An intuitive, clean UI allowing you to focus on creativity.
-  
-- **Model Variety**: Choose from several image generation models: "Stable Diffusion", "Anything-v4.0", "Waifu Diffusion", and "Vintedios Diffusion".
-  
-- **Rapid Image Generation**: Simply type in your desired prompt and watch the magic happen.
-
-## Detailed Steps for Usage
-
-1. **Launch the App**: Navigate to the application URL or start the Streamlit app.
-
-2. **Sample Preview**: For insights on what to expect, click on the **"Prompt & Result Sample"** section to view a sample prompt and the resultant image.
-
-3. **Model Selection**:
-    - Navigate to the dropdown menu.
-    - Select your desired image generation model.
-
-4. **API Key Configuration**:
-    - Locate the sidebar on the left.
-    - Input your Replicate API key into the provided field. If you don't have one, you can obtain it by [following this guide](https://gist.github.com/MonishSoundarRaj/76d1d6ef9a806d879ef4357ae5111f00).
-
-5. **Input Your Prompt**:
-    - In the main section, locate the text area labeled "Enter Image Generation Prompt".
-    - Type in your creative prompt.
-
-6. **Generate Image**:
-    - Click the "Submit Prompt" button.
-    - Give the system a moment to process.
-    - Once completed, the generated image will display on screen.
-
-7. **Download the Result**:
-    - Below the generated image, there will be an option to download it for personal use.
-
-## Requirements
-
-- Streamlit
-- Replicate
-- os module
-- requests
-
-## Installation
-
-To set up and run Imaginate Hub on your own system:
-
-1. Clone this repository:
-```
-git clone https://github.com/MonishSoundarRaj/image-generator-streamlit
-```
-
-2. Navigate to the project directory:
-```
-cd iamge-generator-streamlit
-```
-
-3. Install the required Python packages:
-```
-pip install -r requirements.txt
-```
-
-4. Run the Streamlit app:
-```
-streamlit run app.py
-```
-
-## License
-
-This project falls under the MIT License. For more details, please check the [LICENSE](LICENSE) file.
+👉 Do you want me to connect real PLAN_INFO, PlanAlerts, AlertStatuses tables in SecureEndpoint and display real DB data in Dashboard? Or should I add search/filter (like a tracker) for plans and alerts?
 
