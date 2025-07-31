@@ -1,34 +1,46 @@
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
+[HttpPost("login")]
+public async Task<IActionResult> Login([FromBody] LoginRequest request)
+{
+    try
+    {
+        var user = await _userManager.FindByNameAsync(request.Username);
+        if (user == null)
+            return BadRequest(new { message = "User not found" });
 
-  try {
-    if (isRegister) {
-      // Register API call
-      const response = await axios.post(`${API_BASE}/register`, {
-        username,
-        email: `${username}@test.com`, // Provide dummy email
-        password
-      });
+        // Check password
+        var isPasswordValid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!isPasswordValid)
+            return BadRequest(new { message = "Invalid password" });
 
-      alert("Registration successful! Please login.");
-      setIsRegister(false);
-    } else {
-      // Login API call
-      const response = await axios.post(`${API_BASE}/login`, {
-        username,
-        password
-      });
+        // Generate token
+        var token = _jwtService.GenerateToken(user);
 
-      if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
-        onLoginSuccess();
-      } else {
-        setError("Invalid login response. Please try again.");
-      }
+        return Ok(new { token });
     }
-  } catch (err) {
-    console.error("API error:", err);
-    setError(err.response?.data || "Something went wrong. Please try again.");
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { message = "Internal Server Error", error = ex.Message });
+    }
+}
+
+
+
+
+
+
+
+try {
+  const response = await axios.post(`${API_BASE}/login`, {
+    username,
+    password,
+  });
+
+  localStorage.setItem("token", response.data.token);
+  onLoginSuccess();
+} catch (err) {
+  if (err.response && err.response.data) {
+    setError(err.response.data.message || "Something went wrong");
+  } else {
+    setError("Something went wrong");
   }
-};
+}
