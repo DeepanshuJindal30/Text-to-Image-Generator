@@ -1,3 +1,4 @@
+.
 Here's the full working code for App.js and all related components (LoginRegister.js, Dashboard.js) for your frontend with authentication (JWT + Identity) integrated:
 
 
