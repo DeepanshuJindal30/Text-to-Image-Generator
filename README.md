@@ -1,46 +1,114 @@
-[HttpPost("login")]
-public async Task<IActionResult> Login([FromBody] LoginRequest request)
-{
-    try
-    {
-        var user = await _userManager.FindByNameAsync(request.Username);
-        if (user == null)
-            return BadRequest(new { message = "User not found" });
+import React, { useState } from "react";
+import axios from "axios";
+import {
+  Container,
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Paper,
+} from "@mui/material";
 
-        // Check password
-        var isPasswordValid = await _userManager.CheckPasswordAsync(user, request.Password);
-        if (!isPasswordValid)
-            return BadRequest(new { message = "Invalid password" });
+const API_BASE = "http://localhost:5172/api/controller"; // Backend URL
 
-        // Generate token
-        var token = _jwtService.GenerateToken(user);
+function LoginRegister({ onLoginSuccess }) {
+  const [isRegister, setIsRegister] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-        return Ok(new { token });
+  // Handle register
+  const handleRegister = async () => {
+    try {
+      setError("");
+      await axios.post(`${API_BASE}/register`, { username, password });
+      alert("Registration successful! You can now log in.");
+      setIsRegister(false);
+    } catch (err) {
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "Something went wrong");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     }
-    catch (Exception ex)
-    {
-        return StatusCode(500, new { message = "Internal Server Error", error = ex.Message });
+  };
+
+  // Handle login
+  const handleLogin = async () => {
+    try {
+      setError("");
+      const response = await axios.post(`${API_BASE}/login`, {
+        username,
+        password,
+      });
+
+      // Save token to localStorage
+      localStorage.setItem("token", response.data.token);
+
+      // Notify parent
+      onLoginSuccess();
+    } catch (err) {
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "Something went wrong");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     }
+  };
+
+  return (
+    <Container maxWidth="xs">
+      <Paper elevation={3} sx={{ mt: 10, p: 4 }}>
+        <Typography variant="h5" align="center" gutterBottom>
+          {isRegister ? "Register" : "Login"}
+        </Typography>
+
+        <TextField
+          label="Username"
+          variant="outlined"
+          fullWidth
+          sx={{ mb: 2 }}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+
+        <TextField
+          label="Password"
+          type="password"
+          variant="outlined"
+          fullWidth
+          sx={{ mb: 2 }}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        {error && (
+          <Typography color="error" align="center" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        )}
+
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          onClick={isRegister ? handleRegister : handleLogin}
+        >
+          {isRegister ? "Register" : "Login"}
+        </Button>
+
+        <Typography
+          align="center"
+          sx={{ mt: 2, cursor: "pointer", color: "primary.main" }}
+          onClick={() => setIsRegister((prev) => !prev)}
+        >
+          {isRegister
+            ? "Already have an account? Login"
+            : "Don't have an account? Register"}
+        </Typography>
+      </Paper>
+    </Container>
+  );
 }
 
-
-
-
-
-
-
-try {
-  const response = await axios.post(`${API_BASE}/login`, {
-    username,
-    password,
-  });
-
-  localStorage.setItem("token", response.data.token);
-  onLoginSuccess();
-} catch (err) {
-  if (err.response && err.response.data) {
-    setError(err.response.data.message || "Something went wrong");
-  } else {
-    setError("Something went wrong");
-  }
-}
+export default LoginRegister;
