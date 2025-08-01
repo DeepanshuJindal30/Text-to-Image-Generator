@@ -1,61 +1,42 @@
 code-
 
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from "react-router-dom";
+import { Routes, Route, Link } from "react-router-dom";
 import Login from "./components/Login";
-import Register from "./components/Register";
 import AMLList from "./components/AMLList";
 import TrusteeList from "./components/TrusteeList";
 import SPList from "./components/SPList";
+import Register from "./components/Register";
 
 export default function App() {
-  const token = localStorage.getItem("token");
-
   return (
-    <Router>
-      <div>
-        {/* Navbar */}
-        <nav style={{ padding: "10px", background: "#f5f5f5" }}>
-          {!token && (
-            <>
-              <Link to="/" style={{ marginRight: "15px" }}>Login</Link>
-              <Link to="/register" style={{ marginRight: "15px" }}>Register</Link>
-            </>
-          )}
-          {token && (
-            <>
-              <Link to="/aml" style={{ marginRight: "15px" }}>AML</Link>
-              <Link to="/trustee" style={{ marginRight: "15px" }}>Trustee</Link>
-              <Link to="/sp">Service Providers</Link>
-              <button
-                style={{ marginLeft: "15px" }}
-                onClick={() => {
-                  localStorage.removeItem("token");
-                  localStorage.removeItem("roles");
-                  window.location.href = "/";
-                }}
-              >
-                Logout
-              </button>
-            </>
-          )}
-        </nav>
+    <div>
+      <nav style={{ padding: "10px", background: "#f5f5f5" }}>
+        <Link to="/aml" style={{ marginRight: "15px" }}>AML</Link>
+        <Link to="/trustee" style={{ marginRight: "15px" }}>Trustee</Link>
+        <Link to="/sp" style={{ marginRight: "15px" }}>Service Providers</Link>
+        <Link to="/register" style={{ marginRight: "15px" }}>Register</Link>
+      </nav>
 
-        {/* Routes */}
-        <Routes>
-          <Route path="/" element={!token ? <Login /> : <Navigate to="/aml" />} />
-          <Route path="/register" element={!token ? <Register /> : <Navigate to="/aml" />} />
-          <Route path="/aml" element={token ? <AMLList /> : <Navigate to="/" />} />
-          <Route path="/trustee" element={token ? <TrusteeList /> : <Navigate to="/" />} />
-          <Route path="/sp" element={token ? <SPList /> : <Navigate to="/" />} />
-        </Routes>
-      </div>
-    </Router>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/aml" element={<AMLList />} />
+        <Route path="/trustee" element={<TrusteeList />} />
+        <Route path="/sp" element={<SPList />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </div>
   );
 }
 
 
+
+
 register--
+
+
+
+
 import React, { useState } from "react";
 import { Button, TextField, Container, Typography } from "@mui/material";
 import api from "../api"; // your axios instance
@@ -120,7 +101,10 @@ export default function Register() {
 }
 
 
-login- import React, { useState } from "react";
+login- 
+
+
+import React, { useState } from "react";
 import { Button, TextField, Container, Typography } from "@mui/material";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
