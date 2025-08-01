@@ -1,306 +1,224 @@
-Perfect! Let's now connect the new AML Trustee & Service Provider pages with the Dashboard sidebar and add the routing properly.
+Great! Let's start with 1️⃣ Advanced Table UI for AML Trustee & Service Providers with filters and modals.
 
 
 ---
 
-1️⃣ Update the Sidebar (Layout.jsx)
+1️⃣ Project Structure
 
-Update your Layout.jsx to include navigation links to AML Trustee and Service Providers pages:
+We’ll create dedicated pages and reusable table component:
 
-import React from "react";
+src/
+├── components/
+│   ├── Layout.jsx
+│   └── CustomTable.jsx   <-- Reusable Material UI table with filters + modals
+│
+├── pages/
+│   ├── AMLPage.jsx       <-- AML Trustee table (filtered data)
+│   ├── SPPage.jsx        <-- Service Providers table
+│   └── UploadsPage.jsx   <-- Upload data table
+
+
+---
+
+2️⃣ Create CustomTable.jsx (Reusable Table)
+
+import React, { useState } from "react";
 import {
-  Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText,
-  AppBar, Toolbar, Typography, IconButton
+  Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions
 } from "@mui/material";
-import { Dashboard, TableChart, CloudUpload, Logout, Groups } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
 
-const drawerWidth = 220;
+const CustomTable = ({ columns, rows, filters = [], title }) => {
+  const [filterValues, setFilterValues] = useState({});
+  const [openModal, setOpenModal] = useState(false);
+  const [modalData, setModalData] = useState(null);
 
-const Layout = ({ children, onLogout }) => {
-  const navigate = useNavigate();
+  // Filter rows dynamically
+  const filteredRows = rows.filter((row) =>
+    Object.entries(filterValues).every(([key, val]) =>
+      val ? String(row[key]).toLowerCase().includes(val.toLowerCase()) : true
+    )
+  );
+
+  const handleOpenModal = (row) => {
+    setModalData(row);
+    setOpenModal(true);
+  };
 
   return (
-    <Box sx={{ display: "flex" }}>
-      {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          "& .MuiDrawer-paper": { width: drawerWidth, bgcolor: "#1E293B", color: "white" }
-        }}
-      >
-        <Typography variant="h5" sx={{ p: 2, textAlign: "center", fontWeight: "bold" }}>
-          PES Portal
-        </Typography>
-        <List>
-          <ListItemButton onClick={() => navigate("/dashboard")}>
-            <ListItemIcon><Dashboard sx={{ color: "white" }} /></ListItemIcon>
-            <ListItemText primary="Dashboard" />
-          </ListItemButton>
-
-          <ListItemButton onClick={() => navigate("/aml")}>
-            <ListItemIcon><Groups sx={{ color: "white" }} /></ListItemIcon>
-            <ListItemText primary="AML Trustee" />
-          </ListItemButton>
-
-          <ListItemButton onClick={() => navigate("/sp")}>
-            <ListItemIcon><TableChart sx={{ color: "white" }} /></ListItemIcon>
-            <ListItemText primary="Service Providers" />
-          </ListItemButton>
-
-          <ListItemButton onClick={() => navigate("/uploads")}>
-            <ListItemIcon><CloudUpload sx={{ color: "white" }} /></ListItemIcon>
-            <ListItemText primary="Uploads" />
-          </ListItemButton>
-        </List>
-      </Drawer>
-
-      {/* Topbar */}
-      <Box component="main" sx={{ flexGrow: 1 }}>
-        <AppBar position="sticky" sx={{ bgcolor: "#334155", boxShadow: "none" }}>
-          <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Typography variant="h6">PES Dashboard</Typography>
-            <IconButton onClick={onLogout} color="inherit">
-              <Logout />
-            </IconButton>
-          </Toolbar>
-        </AppBar>
-
-        {/* Page Content */}
-        <Box sx={{ p: 3, minHeight: "90vh", bgcolor: "#F8FAFC" }}>
-          {children}
-        </Box>
+    <Box>
+      {/* Filters */}
+      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+        {filters.map((filter) => (
+          <TextField
+            key={filter.field}
+            label={filter.label}
+            size="small"
+            variant="outlined"
+            onChange={(e) =>
+              setFilterValues({ ...filterValues, [filter.field]: e.target.value })
+            }
+          />
+        ))}
       </Box>
+
+      {/* Table */}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead sx={{ bgcolor: "#E2E8F0" }}>
+            <TableRow>
+              {columns.map((col) => (
+                <TableCell key={col.field}>{col.headerName}</TableCell>
+              ))}
+              <TableCell>Action</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredRows.map((row, index) => (
+              <TableRow key={index}>
+                {columns.map((col) => (
+                  <TableCell key={col.field}>{row[col.field]}</TableCell>
+                ))}
+                <TableCell>
+                  <Button variant="outlined" size="small" onClick={() => handleOpenModal(row)}>
+                    View
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Modal */}
+      <Dialog open={openModal} onClose={() => setOpenModal(false)}>
+        <DialogTitle>Details</DialogTitle>
+        <DialogContent>
+          {modalData &&
+            Object.entries(modalData).map(([key, val]) => (
+              <p key={key}>
+                <b>{key}:</b> {val}
+              </p>
+            ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenModal(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
-export default Layout;
+export default CustomTable;
 
 
 ---
 
-2️⃣ Update Routes in App.js
+3️⃣ Create AMLPage.jsx
 
-Your App.js now needs the updated routes for the new pages:
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import CustomTable from "../components/CustomTable";
+import api from "../api";
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import DashboardPage from "./pages/DashboardPage";
-import AMLPage from "./pages/AMLPage";
-import SPPage from "./pages/SPPage";
-import UploadsPage from "./pages/UploadsPage";
+export default function AMLPage() {
+  const [rows, setRows] = useState([]);
 
-function App() {
+  useEffect(() => {
+    const fetchAML = async () => {
+      const res = await api.get("/trusteeamlplans");
+      setRows(res.data);
+    };
+    fetchAML();
+  }, []);
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/aml" element={<AMLPage />} />
-        <Route path="/sp" element={<SPPage />} />
-        <Route path="/uploads" element={<UploadsPage />} />
-      </Routes>
-    </Router>
+    <Layout>
+      <h2>AML Trustee Data</h2>
+      <CustomTable
+        title="AML Trustee"
+        columns={[
+          { field: "planNumber", headerName: "Plan Number" },
+          { field: "category", headerName: "Category" },
+          { field: "status", headerName: "Status" },
+        ]}
+        filters={[
+          { field: "planNumber", label: "Filter by Plan Number" },
+          { field: "category", label: "Filter by Category" },
+        ]}
+        rows={rows}
+      />
+    </Layout>
   );
 }
 
-export default App;
-
 
 ---
 
-3️⃣ Flow after login
+4️⃣ Create SPPage.jsx
 
-1. User logs in
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import CustomTable from "../components/CustomTable";
+import api from "../api";
 
+export default function SPPage() {
+  const [rows, setRows] = useState([]);
 
-2. Redirects to /dashboard (DashboardPage.jsx)
-
-
-3. Sidebar shows AML Trustee, Service Providers, Uploads
-
-
-4. Clicking on each menu item loads its respective page with advanced table & filters
-
-
-
-
----
-
-4️⃣ What’s next?
-
-Now we have navigation + advanced table UI + modals fully working.
-
-👉 Do you want me to:
-
-1️⃣ Add role-based access (Admin/User) so that:
-
-Only Admin can see "Register User" and Service Providers menu
-
-User role sees limited menus
-
-
-2️⃣ Add UploadsPage with table & filters (similar to AML Trustee)?
-
-> Which one should we do first? Role-based access 🔐 or UploadsPage table?
-
-Perfect! Let's now connect the new AML Trustee & Service Provider pages with the Dashboard sidebar and add the routing properly.
-
-
----
-
-1️⃣ Update the Sidebar (Layout.jsx)
-
-Update your Layout.jsx to include navigation links to AML Trustee and Service Providers pages:
-
-import React from "react";
-import {
-  Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText,
-  AppBar, Toolbar, Typography, IconButton
-} from "@mui/material";
-import { Dashboard, TableChart, CloudUpload, Logout, Groups } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
-
-const drawerWidth = 220;
-
-const Layout = ({ children, onLogout }) => {
-  const navigate = useNavigate();
+  useEffect(() => {
+    const fetchSP = async () => {
+      const res = await api.get("/serviceproviders");
+      setRows(res.data);
+    };
+    fetchSP();
+  }, []);
 
   return (
-    <Box sx={{ display: "flex" }}>
-      {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          "& .MuiDrawer-paper": { width: drawerWidth, bgcolor: "#1E293B", color: "white" }
-        }}
-      >
-        <Typography variant="h5" sx={{ p: 2, textAlign: "center", fontWeight: "bold" }}>
-          PES Portal
-        </Typography>
-        <List>
-          <ListItemButton onClick={() => navigate("/dashboard")}>
-            <ListItemIcon><Dashboard sx={{ color: "white" }} /></ListItemIcon>
-            <ListItemText primary="Dashboard" />
-          </ListItemButton>
-
-          <ListItemButton onClick={() => navigate("/aml")}>
-            <ListItemIcon><Groups sx={{ color: "white" }} /></ListItemIcon>
-            <ListItemText primary="AML Trustee" />
-          </ListItemButton>
-
-          <ListItemButton onClick={() => navigate("/sp")}>
-            <ListItemIcon><TableChart sx={{ color: "white" }} /></ListItemIcon>
-            <ListItemText primary="Service Providers" />
-          </ListItemButton>
-
-          <ListItemButton onClick={() => navigate("/uploads")}>
-            <ListItemIcon><CloudUpload sx={{ color: "white" }} /></ListItemIcon>
-            <ListItemText primary="Uploads" />
-          </ListItemButton>
-        </List>
-      </Drawer>
-
-      {/* Topbar */}
-      <Box component="main" sx={{ flexGrow: 1 }}>
-        <AppBar position="sticky" sx={{ bgcolor: "#334155", boxShadow: "none" }}>
-          <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Typography variant="h6">PES Dashboard</Typography>
-            <IconButton onClick={onLogout} color="inherit">
-              <Logout />
-            </IconButton>
-          </Toolbar>
-        </AppBar>
-
-        {/* Page Content */}
-        <Box sx={{ p: 3, minHeight: "90vh", bgcolor: "#F8FAFC" }}>
-          {children}
-        </Box>
-      </Box>
-    </Box>
-  );
-};
-
-export default Layout;
-
-
----
-
-2️⃣ Update Routes in App.js
-
-Your App.js now needs the updated routes for the new pages:
-
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import DashboardPage from "./pages/DashboardPage";
-import AMLPage from "./pages/AMLPage";
-import SPPage from "./pages/SPPage";
-import UploadsPage from "./pages/UploadsPage";
-
-function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/aml" element={<AMLPage />} />
-        <Route path="/sp" element={<SPPage />} />
-        <Route path="/uploads" element={<UploadsPage />} />
-      </Routes>
-    </Router>
+    <Layout>
+      <h2>Service Providers</h2>
+      <CustomTable
+        title="Service Providers"
+        columns={[
+          { field: "spId", headerName: "SP ID" },
+          { field: "spName", headerName: "SP Name" },
+          { field: "status", headerName: "Status" },
+        ]}
+        filters={[
+          { field: "spName", label: "Filter by SP Name" },
+          { field: "status", label: "Filter by Status" },
+        ]}
+        rows={rows}
+      />
+    </Layout>
   );
 }
 
-export default App;
+
+---
+
+5️⃣ Update App.js Routes
+
+import AMLPage from "./pages/AMLPage";
+import SPPage from "./pages/SPPage";
+
+<Routes>
+  <Route path="/aml" element={<AMLPage />} />
+  <Route path="/sp" element={<SPPage />} />
+</Routes>
 
 
 ---
 
-3️⃣ Flow after login
+What This Gives You
 
-1. User logs in
-
-
-2. Redirects to /dashboard (DashboardPage.jsx)
-
-
-3. Sidebar shows AML Trustee, Service Providers, Uploads
-
-
-4. Clicking on each menu item loads its respective page with advanced table & filters
-
-
+✅ Search/Filter for columns like Plan Number, Category, Status
+✅ Reusable Table (just change columns and filters)
+✅ Modal pop-up for row details (no need for extra page)
+✅ Clean Material UI look
 
 
 ---
 
-4️⃣ What’s next?
-
-Now we have navigation + advanced table UI + modals fully working.
-
-👉 Do you want me to:
-
-1️⃣ Add role-based access (Admin/User) so that:
-
-Only Admin can see "Register User" and Service Providers menu
-
-User role sees limited menus
-
-
-2️⃣ Add UploadsPage with table & filters (similar to AML Trustee)?
-
-> Which one should we do first? Role-based access 🔐 or UploadsPage table?
-
-
-
-
-
-
+👉 Do you want me to now connect this with Dashboard sidebar (so clicking "AML Trustee" or "Service Providers" opens these pages)?
+Or should I add role-based access (Admin/User) at the same time?
 
