@@ -7,9 +7,25 @@ import {
   Tooltip,
   Legend,
   Title,
+  CategoryScale,
+  LinearScale,       // ADD
+  BarElement,        // ADD
+  PointElement,      // ADD
+  LineElement        // ADD
 } from "chart.js";
 
-ChartJS.register(ArcElement, Tooltip, Legend, Title);
+// ✅ Register all necessary chart elements and scales
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  Title,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement
+);
 
 export default function GraphCard({ title, labels, dataValues }) {
   const data = {
