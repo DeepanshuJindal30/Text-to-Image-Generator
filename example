@@ -1,41 +1,15 @@
-Great! Since you already have clear API endpoints for AML, SP, and Trustee, we can build fully working CRUD pages (with search, graphs, and realtime updates) using these APIs.
+Perfect, now we will fix your AMLPage, SPPage, and TrusteePage with CRUD, search bar, and dynamic UI using the schemas and the api.js in src.
 
 
 ---
 
-1. Final Structure (Frontend)
+1️⃣ Ensure api.js is correct in src/
 
-src
-├── components
-│   ├── Layout.jsx           # Navbar, Sidebar for tabs
-│   ├── ModalForm.jsx        # Reusable Add/Edit Modal
-│   ├── CustomTable.jsx      # Reusable Table with Search + Actions
-│   └── GraphCard.jsx        # Graph Component for Dashboard
-│
-├── pages
-│   ├── DashboardPage.jsx    # Graphs & Analytics
-│   ├── AMLPage.jsx          # AML CRUD
-│   ├── SPPage.jsx           # Service Provider CRUD
-│   ├── TrusteePage.jsx      # Trustee CRUD
-│   └── UploadsPage.jsx
-│
-├── redux
-│   ├── api.js               # Axios base setup
-│   └── store.js
-│
-├── App.js                   # Routes
-└── index.js
-
-
----
-
-2. Axios Base (api.js)
-
-// src/redux/api.js
+// src/api.js
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5041/api",
+  baseURL: "http://localhost:5041/api", // Backend Swagger base URL
 });
 
 export default api;
@@ -43,61 +17,41 @@ export default api;
 
 ---
 
-3. Layout (Tabs UI)
-
-// src/components/Layout.jsx
-import React from "react";
-import { Link } from "react-router-dom";
-import "./Layout.css";
-
-export default function Layout({ children }) {
-  return (
-    <div>
-      <nav className="navbar">
-        <h2>PES Portal</h2>
-        <div>
-          <Link to="/dashboard">Dashboard</Link>
-          <Link to="/aml">AML</Link>
-          <Link to="/trustee">Trustee</Link>
-          <Link to="/sp">Service Providers</Link>
-        </div>
-      </nav>
-      <div className="container">{children}</div>
-    </div>
-  );
-}
-
-
----
-
-4. AMLPage (CRUD + Search)
+2️⃣ AMLPage.jsx (CRUD + Search)
 
 // src/pages/AMLPage.jsx
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import CustomTable from "../components/CustomTable";
 import ModalForm from "../components/ModalForm";
-import api from "../redux/api";
+import api from "../api";
 
 export default function AMLPage() {
   const [rows, setRows] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [editRow, setEditRow] = useState(null);
 
+  // Fetch AML data
   const fetchData = async () => {
-    const res = await api.get("/AML");
-    setRows(res.data);
+    try {
+      const res = await api.get("/AML");
+      setRows(res.data);
+    } catch (err) {
+      console.error("AML Fetch Error:", err);
+    }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Delete AML record
   const handleDelete = async (id) => {
     await api.delete(`/AML/${id}`);
     fetchData();
   };
 
+  // Save (Create/Update)
   const handleSave = async (data) => {
     if (editRow) {
       await api.put(`/AML/${editRow.aml_ID}`, data);
@@ -112,28 +66,31 @@ export default function AMLPage() {
   return (
     <Layout>
       <h2>AML Records</h2>
-      <button onClick={() => setOpenModal(true)}>+ Add Record</button>
+      <button className="btn-add" onClick={() => setOpenModal(true)}>+ Add AML</button>
+
       <CustomTable
         columns={[
-          { field: "plan_Number", headerName: "Plan Number" },
+          { field: "planNumber", headerName: "Plan Number" },
           { field: "status", headerName: "Status" },
-          { field: "compliance_Date", headerName: "Compliance Date" },
+          { field: "complianceDate", headerName: "Compliance Date" },
+          { field: "comments", headerName: "Comments" }
         ]}
         rows={rows}
+        searchField="planNumber"
         onEdit={(row) => {
           setEditRow(row);
           setOpenModal(true);
         }}
         onDelete={handleDelete}
-        searchField="plan_Number"
       />
+
       {openModal && (
         <ModalForm
           fields={[
-            { name: "plan_Number", label: "Plan Number" },
+            { name: "planNumber", label: "Plan Number" },
             { name: "status", label: "Status" },
-            { name: "compliance_Date", label: "Compliance Date", type: "date" },
-            { name: "comments", label: "Comments" },
+            { name: "complianceDate", label: "Compliance Date", type: "date" },
+            { name: "comments", label: "Comments" }
           ]}
           defaultValues={editRow}
           onClose={() => setOpenModal(false)}
@@ -147,18 +104,14 @@ export default function AMLPage() {
 
 ---
 
-5. SPPage & TrusteePage
-
-They are the same pattern, just with column names changed.
-
-SPPage.jsx
+3️⃣ SPPage.jsx
 
 // src/pages/SPPage.jsx
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import CustomTable from "../components/CustomTable";
 import ModalForm from "../components/ModalForm";
-import api from "../redux/api";
+import api from "../api";
 
 export default function SPPage() {
   const [rows, setRows] = useState([]);
@@ -166,8 +119,12 @@ export default function SPPage() {
   const [editRow, setEditRow] = useState(null);
 
   const fetchData = async () => {
-    const res = await api.get("/SP");
-    setRows(res.data);
+    try {
+      const res = await api.get("/SP");
+      setRows(res.data);
+    } catch (err) {
+      console.error("SP Fetch Error:", err);
+    }
   };
 
   useEffect(() => {
@@ -193,27 +150,29 @@ export default function SPPage() {
   return (
     <Layout>
       <h2>Service Providers</h2>
-      <button onClick={() => setOpenModal(true)}>+ Add Service Provider</button>
+      <button className="btn-add" onClick={() => setOpenModal(true)}>+ Add SP</button>
+
       <CustomTable
         columns={[
-          { field: "name", headerName: "Name" },
-          { field: "service_Type", headerName: "Service Type" },
-          { field: "trustee_ID", headerName: "Trustee ID" },
+          { field: "name", headerName: "SP Name" },
+          { field: "serviceType", headerName: "Service Type" },
+          { field: "trusteeId", headerName: "Trustee ID" }
         ]}
         rows={rows}
+        searchField="name"
         onEdit={(row) => {
           setEditRow(row);
           setOpenModal(true);
         }}
         onDelete={handleDelete}
-        searchField="name"
       />
+
       {openModal && (
         <ModalForm
           fields={[
-            { name: "name", label: "Name" },
-            { name: "service_Type", label: "Service Type" },
-            { name: "trustee_ID", label: "Trustee ID", type: "number" },
+            { name: "name", label: "SP Name" },
+            { name: "serviceType", label: "Service Type" },
+            { name: "trusteeId", label: "Trustee ID" }
           ]}
           defaultValues={editRow}
           onClose={() => setOpenModal(false)}
@@ -227,67 +186,83 @@ export default function SPPage() {
 
 ---
 
-TrusteePage.jsx
+4️⃣ TrusteePage.jsx
 
-Same logic with Trustee columns:
-
-columns={[
-  { field: "name", headerName: "Name" },
-  { field: "email", headerName: "Email" },
-  { field: "phone", headerName: "Phone" },
-  { field: "plan_Number", headerName: "Plan Number" },
-]}
-
-
----
-
-6. Dashboard with Graphs
-
-We can use Chart.js:
-
-// src/pages/DashboardPage.jsx
+// src/pages/TrusteePage.jsx
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout";
-import { Bar } from "react-chartjs-2";
-import api from "../redux/api";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import CustomTable from "../components/CustomTable";
+import ModalForm from "../components/ModalForm";
+import api from "../api";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+export default function TrusteePage() {
+  const [rows, setRows] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
-export default function DashboardPage() {
-  const [aml, setAml] = useState([]);
-  const [sp, setSp] = useState([]);
-  const [trustee, setTrustee] = useState([]);
+  const fetchData = async () => {
+    try {
+      const res = await api.get("/Trustee");
+      setRows(res.data);
+    } catch (err) {
+      console.error("Trustee Fetch Error:", err);
+    }
+  };
 
   useEffect(() => {
-    api.get("/AML").then((res) => setAml(res.data));
-    api.get("/SP").then((res) => setSp(res.data));
-    api.get("/Trustee").then((res) => setTrustee(res.data));
+    fetchData();
   }, []);
 
-  const data = {
-    labels: ["AML", "Trustee", "Service Providers"],
-    datasets: [
-      {
-        label: "Records",
-        data: [aml.length, trustee.length, sp.length],
-        backgroundColor: ["#42a5f5", "#66bb6a", "#ffa726"],
-      },
-    ],
+  const handleDelete = async (id) => {
+    await api.delete(`/Trustee/${id}`);
+    fetchData();
+  };
+
+  const handleSave = async (data) => {
+    if (editRow) {
+      await api.put(`/Trustee/${editRow.trustee_ID}`, data);
+    } else {
+      await api.post("/Trustee", data);
+    }
+    fetchData();
+    setOpenModal(false);
+    setEditRow(null);
   };
 
   return (
     <Layout>
-      <h2>PES Dashboard</h2>
-      <Bar data={data} />
+      <h2>Trustees</h2>
+      <button className="btn-add" onClick={() => setOpenModal(true)}>+ Add Trustee</button>
+
+      <CustomTable
+        columns={[
+          { field: "name", headerName: "Name" },
+          { field: "email", headerName: "Email" },
+          { field: "phone", headerName: "Phone" },
+          { field: "planNumber", headerName: "Plan Number" }
+        ]}
+        rows={rows}
+        searchField="name"
+        onEdit={(row) => {
+          setEditRow(row);
+          setOpenModal(true);
+        }}
+        onDelete={handleDelete}
+      />
+
+      {openModal && (
+        <ModalForm
+          fields={[
+            { name: "name", label: "Name" },
+            { name: "email", label: "Email" },
+            { name: "phone", label: "Phone" },
+            { name: "planNumber", label: "Plan Number" }
+          ]}
+          defaultValues={editRow}
+          onClose={() => setOpenModal(false)}
+          onSave={handleSave}
+        />
+      )}
     </Layout>
   );
 }
@@ -295,46 +270,37 @@ export default function DashboardPage() {
 
 ---
 
-7. App.js
+5️⃣ UI Components Needed
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import DashboardPage from "./pages/DashboardPage";
-import AMLPage from "./pages/AMLPage";
-import SPPage from "./pages/SPPage";
-import TrusteePage from "./pages/TrusteePage";
+You already have:
 
-export default function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/aml" element={<AMLPage />} />
-        <Route path="/sp" element={<SPPage />} />
-        <Route path="/trustee" element={<TrusteePage />} />
-      </Routes>
-    </Router>
-  );
-}
+CustomTable.jsx → Should have search bar, edit & delete buttons
 
+ModalForm.jsx → Used for Add/Edit forms
 
----
-
-✅ Features Now:
-
-CRUD for AML, SP, Trustee
-
-Search bar + Filters
-
-Graphs & Analytics Dashboard
-
-Reusable Table & Modal
-
-Realtime updates after create/edit/delete
+Layout.jsx → For Dashboard sidebar/topbar
 
 
 
 ---
 
-👉 Do you want me to now give you CustomTable.jsx and ModalForm.jsx with built-in Search, Pagination, Edit/Delete buttons with full CSS (great UI)?
-Then you will have complete code ready-to-use.
+🔹 Next Steps
+
+1. Do you want me to rewrite CustomTable.jsx with:
+
+Search bar
+
+Scroll
+
+Better buttons (Edit/Delete)
+
+Dynamic columns?
+
+
+
+2. Also, do you want graphs & analytics on DashboardPage integrated with this data (counts per status, total trustees, etc.)?
+
+
+
+👉 Which one should I write first: CustomTable.jsx (with search & UI fixes) or Dashboard with Graphs?
 
