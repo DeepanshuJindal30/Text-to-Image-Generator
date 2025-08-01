@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api"; // Axios instance
+import api from "../api";
 import {
   Button,
   Table,
@@ -16,17 +16,17 @@ export default function AMLList() {
   // Fetch AML data
   const fetchAML = async () => {
     try {
-      const res = await api.get("/AML"); // Correct endpoint for AML table
+      const res = await api.get("/AML"); // Correct API
       setAmlList(res.data);
     } catch (err) {
       console.error("Error fetching AML data:", err);
     }
   };
 
-  // Delete AML record
-  const deleteAML = async (id) => {
+  // Delete AML record (using plan_Number as ID)
+  const deleteAML = async (planNumber) => {
     try {
-      await api.delete(`/AML/${id}`);
+      await api.delete(`/AML/${planNumber}`);
       fetchAML();
     } catch (err) {
       console.error("Error deleting AML record:", err);
@@ -43,7 +43,6 @@ export default function AMLList() {
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell>AML_ID</TableCell>
             <TableCell>Plan Number</TableCell>
             <TableCell>Status</TableCell>
             <TableCell>Compliance Date</TableCell>
@@ -53,17 +52,20 @@ export default function AMLList() {
         </TableHead>
         <TableBody>
           {amlList.length > 0 ? (
-            amlList.map((aml) => (
-              <TableRow key={aml.aml_ID}>
-                <TableCell>{aml.aml_ID}</TableCell>
+            amlList.map((aml, index) => (
+              <TableRow key={index}>
                 <TableCell>{aml.plan_Number}</TableCell>
                 <TableCell>{aml.status}</TableCell>
-                <TableCell>{new Date(aml.compliance_Date).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  {aml.compliance_Date
+                    ? new Date(aml.compliance_Date).toLocaleDateString()
+                    : "-"}
+                </TableCell>
                 <TableCell>{aml.comments || "-"}</TableCell>
                 <TableCell>
                   <Button
                     color="error"
-                    onClick={() => deleteAML(aml.aml_ID)}
+                    onClick={() => deleteAML(aml.plan_Number)}
                   >
                     Delete
                   </Button>
@@ -72,7 +74,7 @@ export default function AMLList() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} style={{ textAlign: "center" }}>
+              <TableCell colSpan={5} style={{ textAlign: "center" }}>
                 No records found
               </TableCell>
             </TableRow>
