@@ -1,306 +1,56 @@
-Perfect, now we will fix your AMLPage, SPPage, and TrusteePage with CRUD, search bar, and dynamic UI using the schemas and the api.js in src.
+// src/components/CustomTable.jsx
+import React, { useState } from "react";
 
+export default function CustomTable({ columns, rows, searchField, onEdit, onDelete }) {
+  const [searchTerm, setSearchTerm] = useState("");
 
----
-
-1️⃣ Ensure api.js is correct in src/
-
-// src/api.js
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: "http://localhost:5041/api", // Backend Swagger base URL
-});
-
-export default api;
-
-
----
-
-2️⃣ AMLPage.jsx (CRUD + Search)
-
-// src/pages/AMLPage.jsx
-import React, { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import CustomTable from "../components/CustomTable";
-import ModalForm from "../components/ModalForm";
-import api from "../api";
-
-export default function AMLPage() {
-  const [rows, setRows] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [editRow, setEditRow] = useState(null);
-
-  // Fetch AML data
-  const fetchData = async () => {
-    try {
-      const res = await api.get("/AML");
-      setRows(res.data);
-    } catch (err) {
-      console.error("AML Fetch Error:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Delete AML record
-  const handleDelete = async (id) => {
-    await api.delete(`/AML/${id}`);
-    fetchData();
-  };
-
-  // Save (Create/Update)
-  const handleSave = async (data) => {
-    if (editRow) {
-      await api.put(`/AML/${editRow.aml_ID}`, data);
-    } else {
-      await api.post("/AML", data);
-    }
-    fetchData();
-    setOpenModal(false);
-    setEditRow(null);
-  };
+  const filteredRows = rows.filter((row) => {
+    const value = row[searchField];
+    return value && value.toString().toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
-    <Layout>
-      <h2>AML Records</h2>
-      <button className="btn-add" onClick={() => setOpenModal(true)}>+ Add AML</button>
-
-      <CustomTable
-        columns={[
-          { field: "planNumber", headerName: "Plan Number" },
-          { field: "status", headerName: "Status" },
-          { field: "complianceDate", headerName: "Compliance Date" },
-          { field: "comments", headerName: "Comments" }
-        ]}
-        rows={rows}
-        searchField="planNumber"
-        onEdit={(row) => {
-          setEditRow(row);
-          setOpenModal(true);
-        }}
-        onDelete={handleDelete}
-      />
-
-      {openModal && (
-        <ModalForm
-          fields={[
-            { name: "planNumber", label: "Plan Number" },
-            { name: "status", label: "Status" },
-            { name: "complianceDate", label: "Compliance Date", type: "date" },
-            { name: "comments", label: "Comments" }
-          ]}
-          defaultValues={editRow}
-          onClose={() => setOpenModal(false)}
-          onSave={handleSave}
+    <div className="table-container">
+      <div className="table-header">
+        <input
+          type="text"
+          placeholder={`Search by ${searchField}`}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
-      )}
-    </Layout>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th key={col.field}>{col.headerName}</th>
+            ))}
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredRows.length > 0 ? (
+            filteredRows.map((row) => (
+              <tr key={row.id || row._id || Math.random()}>
+                {columns.map((col) => (
+                  <td key={col.field}>{row[col.field] || "-"}</td>
+                ))}
+                <td>
+                  <button onClick={() => onEdit(row)}>✏️ Edit</button>
+                  <button onClick={() => onDelete(row.aml_ID || row.sp_ID || row.trustee_ID)}>🗑 Delete</button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={columns.length + 1} style={{ textAlign: "center" }}>
+                No records found
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
-
-
----
-
-3️⃣ SPPage.jsx
-
-// src/pages/SPPage.jsx
-import React, { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import CustomTable from "../components/CustomTable";
-import ModalForm from "../components/ModalForm";
-import api from "../api";
-
-export default function SPPage() {
-  const [rows, setRows] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [editRow, setEditRow] = useState(null);
-
-  const fetchData = async () => {
-    try {
-      const res = await api.get("/SP");
-      setRows(res.data);
-    } catch (err) {
-      console.error("SP Fetch Error:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleDelete = async (id) => {
-    await api.delete(`/SP/${id}`);
-    fetchData();
-  };
-
-  const handleSave = async (data) => {
-    if (editRow) {
-      await api.put(`/SP/${editRow.sp_ID}`, data);
-    } else {
-      await api.post("/SP", data);
-    }
-    fetchData();
-    setOpenModal(false);
-    setEditRow(null);
-  };
-
-  return (
-    <Layout>
-      <h2>Service Providers</h2>
-      <button className="btn-add" onClick={() => setOpenModal(true)}>+ Add SP</button>
-
-      <CustomTable
-        columns={[
-          { field: "name", headerName: "SP Name" },
-          { field: "serviceType", headerName: "Service Type" },
-          { field: "trusteeId", headerName: "Trustee ID" }
-        ]}
-        rows={rows}
-        searchField="name"
-        onEdit={(row) => {
-          setEditRow(row);
-          setOpenModal(true);
-        }}
-        onDelete={handleDelete}
-      />
-
-      {openModal && (
-        <ModalForm
-          fields={[
-            { name: "name", label: "SP Name" },
-            { name: "serviceType", label: "Service Type" },
-            { name: "trusteeId", label: "Trustee ID" }
-          ]}
-          defaultValues={editRow}
-          onClose={() => setOpenModal(false)}
-          onSave={handleSave}
-        />
-      )}
-    </Layout>
-  );
-}
-
-
----
-
-4️⃣ TrusteePage.jsx
-
-// src/pages/TrusteePage.jsx
-import React, { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import CustomTable from "../components/CustomTable";
-import ModalForm from "../components/ModalForm";
-import api from "../api";
-
-export default function TrusteePage() {
-  const [rows, setRows] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [editRow, setEditRow] = useState(null);
-
-  const fetchData = async () => {
-    try {
-      const res = await api.get("/Trustee");
-      setRows(res.data);
-    } catch (err) {
-      console.error("Trustee Fetch Error:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleDelete = async (id) => {
-    await api.delete(`/Trustee/${id}`);
-    fetchData();
-  };
-
-  const handleSave = async (data) => {
-    if (editRow) {
-      await api.put(`/Trustee/${editRow.trustee_ID}`, data);
-    } else {
-      await api.post("/Trustee", data);
-    }
-    fetchData();
-    setOpenModal(false);
-    setEditRow(null);
-  };
-
-  return (
-    <Layout>
-      <h2>Trustees</h2>
-      <button className="btn-add" onClick={() => setOpenModal(true)}>+ Add Trustee</button>
-
-      <CustomTable
-        columns={[
-          { field: "name", headerName: "Name" },
-          { field: "email", headerName: "Email" },
-          { field: "phone", headerName: "Phone" },
-          { field: "planNumber", headerName: "Plan Number" }
-        ]}
-        rows={rows}
-        searchField="name"
-        onEdit={(row) => {
-          setEditRow(row);
-          setOpenModal(true);
-        }}
-        onDelete={handleDelete}
-      />
-
-      {openModal && (
-        <ModalForm
-          fields={[
-            { name: "name", label: "Name" },
-            { name: "email", label: "Email" },
-            { name: "phone", label: "Phone" },
-            { name: "planNumber", label: "Plan Number" }
-          ]}
-          defaultValues={editRow}
-          onClose={() => setOpenModal(false)}
-          onSave={handleSave}
-        />
-      )}
-    </Layout>
-  );
-}
-
-
----
-
-5️⃣ UI Components Needed
-
-You already have:
-
-CustomTable.jsx → Should have search bar, edit & delete buttons
-
-ModalForm.jsx → Used for Add/Edit forms
-
-Layout.jsx → For Dashboard sidebar/topbar
-
-
-
----
-
-🔹 Next Steps
-
-1. Do you want me to rewrite CustomTable.jsx with:
-
-Search bar
-
-Scroll
-
-Better buttons (Edit/Delete)
-
-Dynamic columns?
-
-
-
-2. Also, do you want graphs & analytics on DashboardPage integrated with this data (counts per status, total trustees, etc.)?
-
-
-
-👉 Which one should I write first: CustomTable.jsx (with search & UI fixes) or Dashboard with Graphs?
-
