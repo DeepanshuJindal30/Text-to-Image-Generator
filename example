@@ -1,52 +1,340 @@
+Great! Since you already have clear API endpoints for AML, SP, and Trustee, we can build fully working CRUD pages (with search, graphs, and realtime updates) using these APIs.
+
+
+---
+
+1. Final Structure (Frontend)
+
+src
+├── components
+│   ├── Layout.jsx           # Navbar, Sidebar for tabs
+│   ├── ModalForm.jsx        # Reusable Add/Edit Modal
+│   ├── CustomTable.jsx      # Reusable Table with Search + Actions
+│   └── GraphCard.jsx        # Graph Component for Dashboard
+│
+├── pages
+│   ├── DashboardPage.jsx    # Graphs & Analytics
+│   ├── AMLPage.jsx          # AML CRUD
+│   ├── SPPage.jsx           # Service Provider CRUD
+│   ├── TrusteePage.jsx      # Trustee CRUD
+│   └── UploadsPage.jsx
+│
+├── redux
+│   ├── api.js               # Axios base setup
+│   └── store.js
+│
+├── App.js                   # Routes
+└── index.js
+
+
+---
+
+2. Axios Base (api.js)
+
+// src/redux/api.js
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: "http://localhost:5041/api",
+});
+
+export default api;
+
+
+---
+
+3. Layout (Tabs UI)
+
+// src/components/Layout.jsx
 import React from "react";
-import { Card, CardContent, Typography } from "@mui/material";
-import { Pie } from "react-chartjs-2";
+import { Link } from "react-router-dom";
+import "./Layout.css";
+
+export default function Layout({ children }) {
+  return (
+    <div>
+      <nav className="navbar">
+        <h2>PES Portal</h2>
+        <div>
+          <Link to="/dashboard">Dashboard</Link>
+          <Link to="/aml">AML</Link>
+          <Link to="/trustee">Trustee</Link>
+          <Link to="/sp">Service Providers</Link>
+        </div>
+      </nav>
+      <div className="container">{children}</div>
+    </div>
+  );
+}
+
+
+---
+
+4. AMLPage (CRUD + Search)
+
+// src/pages/AMLPage.jsx
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import CustomTable from "../components/CustomTable";
+import ModalForm from "../components/ModalForm";
+import api from "../redux/api";
+
+export default function AMLPage() {
+  const [rows, setRows] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [editRow, setEditRow] = useState(null);
+
+  const fetchData = async () => {
+    const res = await api.get("/AML");
+    setRows(res.data);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleDelete = async (id) => {
+    await api.delete(`/AML/${id}`);
+    fetchData();
+  };
+
+  const handleSave = async (data) => {
+    if (editRow) {
+      await api.put(`/AML/${editRow.aml_ID}`, data);
+    } else {
+      await api.post("/AML", data);
+    }
+    fetchData();
+    setOpenModal(false);
+    setEditRow(null);
+  };
+
+  return (
+    <Layout>
+      <h2>AML Records</h2>
+      <button onClick={() => setOpenModal(true)}>+ Add Record</button>
+      <CustomTable
+        columns={[
+          { field: "plan_Number", headerName: "Plan Number" },
+          { field: "status", headerName: "Status" },
+          { field: "compliance_Date", headerName: "Compliance Date" },
+        ]}
+        rows={rows}
+        onEdit={(row) => {
+          setEditRow(row);
+          setOpenModal(true);
+        }}
+        onDelete={handleDelete}
+        searchField="plan_Number"
+      />
+      {openModal && (
+        <ModalForm
+          fields={[
+            { name: "plan_Number", label: "Plan Number" },
+            { name: "status", label: "Status" },
+            { name: "compliance_Date", label: "Compliance Date", type: "date" },
+            { name: "comments", label: "Comments" },
+          ]}
+          defaultValues={editRow}
+          onClose={() => setOpenModal(false)}
+          onSave={handleSave}
+        />
+      )}
+    </Layout>
+  );
+}
+
+
+---
+
+5. SPPage & TrusteePage
+
+They are the same pattern, just with column names changed.
+
+SPPage.jsx
+
+// src/pages/SPPage.jsx
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import CustomTable from "../components/CustomTable";
+import ModalForm from "../components/ModalForm";
+import api from "../redux/api";
+
+export default function SPPage() {
+  const [rows, setRows] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [editRow, setEditRow] = useState(null);
+
+  const fetchData = async () => {
+    const res = await api.get("/SP");
+    setRows(res.data);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleDelete = async (id) => {
+    await api.delete(`/SP/${id}`);
+    fetchData();
+  };
+
+  const handleSave = async (data) => {
+    if (editRow) {
+      await api.put(`/SP/${editRow.sp_ID}`, data);
+    } else {
+      await api.post("/SP", data);
+    }
+    fetchData();
+    setOpenModal(false);
+    setEditRow(null);
+  };
+
+  return (
+    <Layout>
+      <h2>Service Providers</h2>
+      <button onClick={() => setOpenModal(true)}>+ Add Service Provider</button>
+      <CustomTable
+        columns={[
+          { field: "name", headerName: "Name" },
+          { field: "service_Type", headerName: "Service Type" },
+          { field: "trustee_ID", headerName: "Trustee ID" },
+        ]}
+        rows={rows}
+        onEdit={(row) => {
+          setEditRow(row);
+          setOpenModal(true);
+        }}
+        onDelete={handleDelete}
+        searchField="name"
+      />
+      {openModal && (
+        <ModalForm
+          fields={[
+            { name: "name", label: "Name" },
+            { name: "service_Type", label: "Service Type" },
+            { name: "trustee_ID", label: "Trustee ID", type: "number" },
+          ]}
+          defaultValues={editRow}
+          onClose={() => setOpenModal(false)}
+          onSave={handleSave}
+        />
+      )}
+    </Layout>
+  );
+}
+
+
+---
+
+TrusteePage.jsx
+
+Same logic with Trustee columns:
+
+columns={[
+  { field: "name", headerName: "Name" },
+  { field: "email", headerName: "Email" },
+  { field: "phone", headerName: "Phone" },
+  { field: "plan_Number", headerName: "Plan Number" },
+]}
+
+
+---
+
+6. Dashboard with Graphs
+
+We can use Chart.js:
+
+// src/pages/DashboardPage.jsx
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import { Bar } from "react-chartjs-2";
+import api from "../redux/api";
 import {
   Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  Title,
-  CategoryScale,
-  LinearScale,       // ADD
-  BarElement,        // ADD
-  PointElement,      // ADD
-  LineElement        // ADD
-} from "chart.js";
-
-// ✅ Register all necessary chart elements and scales
-ChartJS.register(
-  ArcElement,
-  Tooltip,
-  Legend,
-  Title,
   CategoryScale,
   LinearScale,
   BarElement,
-  PointElement,
-  LineElement
-);
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
 
-export default function GraphCard({ title, labels, dataValues }) {
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
+export default function DashboardPage() {
+  const [aml, setAml] = useState([]);
+  const [sp, setSp] = useState([]);
+  const [trustee, setTrustee] = useState([]);
+
+  useEffect(() => {
+    api.get("/AML").then((res) => setAml(res.data));
+    api.get("/SP").then((res) => setSp(res.data));
+    api.get("/Trustee").then((res) => setTrustee(res.data));
+  }, []);
+
   const data = {
-    labels,
+    labels: ["AML", "Trustee", "Service Providers"],
     datasets: [
       {
-        data: dataValues,
+        label: "Records",
+        data: [aml.length, trustee.length, sp.length],
         backgroundColor: ["#42a5f5", "#66bb6a", "#ffa726"],
-        hoverBackgroundColor: ["#2196f3", "#43a047", "#fb8c00"],
       },
     ],
   };
 
   return (
-    <Card style={{ marginTop: "20px" }}>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          {title}
-        </Typography>
-        <Pie data={data} />
-      </CardContent>
-    </Card>
+    <Layout>
+      <h2>PES Dashboard</h2>
+      <Bar data={data} />
+    </Layout>
   );
 }
+
+
+---
+
+7. App.js
+
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import DashboardPage from "./pages/DashboardPage";
+import AMLPage from "./pages/AMLPage";
+import SPPage from "./pages/SPPage";
+import TrusteePage from "./pages/TrusteePage";
+
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/aml" element={<AMLPage />} />
+        <Route path="/sp" element={<SPPage />} />
+        <Route path="/trustee" element={<TrusteePage />} />
+      </Routes>
+    </Router>
+  );
+}
+
+
+---
+
+✅ Features Now:
+
+CRUD for AML, SP, Trustee
+
+Search bar + Filters
+
+Graphs & Analytics Dashboard
+
+Reusable Table & Modal
+
+Realtime updates after create/edit/delete
+
+
+
+---
+
+👉 Do you want me to now give you CustomTable.jsx and ModalForm.jsx with built-in Search, Pagination, Edit/Delete buttons with full CSS (great UI)?
+Then you will have complete code ready-to-use.
+
