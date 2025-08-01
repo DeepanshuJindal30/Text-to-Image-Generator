@@ -35,3 +35,123 @@ if (!emailRegex.test(email)) {
   alert("Please enter a valid email address");
   return;
 }
+
+
+
+Perfect! Let’s add password constraints along with the email validation so users must create strong passwords.
+
+
+---
+
+1️⃣ Update Identity Options (Password Rules)
+
+In Program.cs, update Identity configuration:
+
+builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
+{
+    // Email validation
+    options.User.RequireUniqueEmail = true;
+
+    // Password constraints
+    options.Password.RequiredLength = 8;           // Minimum length
+    options.Password.RequireDigit = true;          // At least 1 number
+    options.Password.RequireUppercase = true;      // At least 1 uppercase letter
+    options.Password.RequireLowercase = true;      // At least 1 lowercase letter
+    options.Password.RequireNonAlphanumeric = true; // At least 1 special character
+})
+.AddEntityFrameworkStores<AppDbContext>()
+.AddDefaultTokenProviders();
+
+
+---
+
+2️⃣ AuthController – Validation in Register
+
+Your Register method will now handle email and password validation:
+
+[HttpPost("register")]
+public async Task<IActionResult> Register(string email, string password)
+{
+    // Email format validation
+    if (string.IsNullOrWhiteSpace(email) || !IsValidEmail(email))
+        return BadRequest("Invalid email format. Please use a valid email address.");
+
+    // Create user
+    var user = new AppUser { UserName = email, Email = email };
+    var result = await _userManager.CreateAsync(user, password);
+
+    // Handle Identity password validation errors
+    if (!result.Succeeded)
+        return BadRequest(result.Errors.Select(e => e.Description));
+
+    return Ok("User registered successfully");
+}
+
+private bool IsValidEmail(string email)
+{
+    try
+    {
+        var addr = new System.Net.Mail.MailAddress(email);
+        return addr.Address == email;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+
+---
+
+3️⃣ Example Error Messages
+
+If user tries with a weak password (e.g. abc123):
+
+400 Bad Request: [
+    "Passwords must be at least 8 characters.",
+    "Passwords must have at least one uppercase ('A'-'Z').",
+    "Passwords must have at least one non alphanumeric character."
+]
+
+
+---
+
+4️⃣ Frontend Validation (Optional)
+
+In React, validate before hitting the API:
+
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+
+if (!passwordRegex.test(password)) {
+  alert("Password must be at least 8 characters, include uppercase, lowercase, number, and special character.");
+  return;
+}
+
+
+---
+
+✅ Result
+
+1. Email must be valid & unique.
+
+
+2. Password must:
+
+Be at least 8 characters
+
+Contain at least 1 uppercase letter
+
+Contain at least 1 lowercase letter
+
+Contain at least 1 number
+
+Contain at least 1 special character
+
+
+
+
+
+---
+
+👉 Do you also want me to add role assignment (Admin/Trustee) during registration so we can apply role-based access on APIs and frontend? Or should we move to frontend JWT login flow with tokens saved in Redux?
+
