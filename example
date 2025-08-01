@@ -1,3 +1,21 @@
+I want to create a. Full stack app
+
+Using asp.net core  MVC
+
+ORM: Dapper 
+Database Server: ms sql
+APi: Bruno swagger 
+Operation: Crud 
+Language: C# 
+Authentication : Identity 
+Database : PES 
+Table: AMl, Trustee,SP 
+Ui: waypoint
+Froentend - React Redux 
+Design Pattern: Singleton
+
+Services: cors
+
 code-
 
 import React from "react";
