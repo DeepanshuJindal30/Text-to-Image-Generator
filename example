@@ -148,5 +148,159 @@ User role sees limited menus
 
 > Which one should we do first? Role-based access 🔐 or UploadsPage table?
 
+Perfect! Let's now connect the new AML Trustee & Service Provider pages with the Dashboard sidebar and add the routing properly.
+
+
+---
+
+1️⃣ Update the Sidebar (Layout.jsx)
+
+Update your Layout.jsx to include navigation links to AML Trustee and Service Providers pages:
+
+import React from "react";
+import {
+  Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText,
+  AppBar, Toolbar, Typography, IconButton
+} from "@mui/material";
+import { Dashboard, TableChart, CloudUpload, Logout, Groups } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+
+const drawerWidth = 220;
+
+const Layout = ({ children, onLogout }) => {
+  const navigate = useNavigate();
+
+  return (
+    <Box sx={{ display: "flex" }}>
+      {/* Sidebar */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: drawerWidth,
+          "& .MuiDrawer-paper": { width: drawerWidth, bgcolor: "#1E293B", color: "white" }
+        }}
+      >
+        <Typography variant="h5" sx={{ p: 2, textAlign: "center", fontWeight: "bold" }}>
+          PES Portal
+        </Typography>
+        <List>
+          <ListItemButton onClick={() => navigate("/dashboard")}>
+            <ListItemIcon><Dashboard sx={{ color: "white" }} /></ListItemIcon>
+            <ListItemText primary="Dashboard" />
+          </ListItemButton>
+
+          <ListItemButton onClick={() => navigate("/aml")}>
+            <ListItemIcon><Groups sx={{ color: "white" }} /></ListItemIcon>
+            <ListItemText primary="AML Trustee" />
+          </ListItemButton>
+
+          <ListItemButton onClick={() => navigate("/sp")}>
+            <ListItemIcon><TableChart sx={{ color: "white" }} /></ListItemIcon>
+            <ListItemText primary="Service Providers" />
+          </ListItemButton>
+
+          <ListItemButton onClick={() => navigate("/uploads")}>
+            <ListItemIcon><CloudUpload sx={{ color: "white" }} /></ListItemIcon>
+            <ListItemText primary="Uploads" />
+          </ListItemButton>
+        </List>
+      </Drawer>
+
+      {/* Topbar */}
+      <Box component="main" sx={{ flexGrow: 1 }}>
+        <AppBar position="sticky" sx={{ bgcolor: "#334155", boxShadow: "none" }}>
+          <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+            <Typography variant="h6">PES Dashboard</Typography>
+            <IconButton onClick={onLogout} color="inherit">
+              <Logout />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+
+        {/* Page Content */}
+        <Box sx={{ p: 3, minHeight: "90vh", bgcolor: "#F8FAFC" }}>
+          {children}
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+export default Layout;
+
+
+---
+
+2️⃣ Update Routes in App.js
+
+Your App.js now needs the updated routes for the new pages:
+
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import DashboardPage from "./pages/DashboardPage";
+import AMLPage from "./pages/AMLPage";
+import SPPage from "./pages/SPPage";
+import UploadsPage from "./pages/UploadsPage";
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/aml" element={<AMLPage />} />
+        <Route path="/sp" element={<SPPage />} />
+        <Route path="/uploads" element={<UploadsPage />} />
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;
+
+
+---
+
+3️⃣ Flow after login
+
+1. User logs in
+
+
+2. Redirects to /dashboard (DashboardPage.jsx)
+
+
+3. Sidebar shows AML Trustee, Service Providers, Uploads
+
+
+4. Clicking on each menu item loads its respective page with advanced table & filters
+
+
+
+
+---
+
+4️⃣ What’s next?
+
+Now we have navigation + advanced table UI + modals fully working.
+
+👉 Do you want me to:
+
+1️⃣ Add role-based access (Admin/User) so that:
+
+Only Admin can see "Register User" and Service Providers menu
+
+User role sees limited menus
+
+
+2️⃣ Add UploadsPage with table & filters (similar to AML Trustee)?
+
+> Which one should we do first? Role-based access 🔐 or UploadsPage table?
+
+
+
+
+
 
 
