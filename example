@@ -1,88 +1,90 @@
-Great! We'll create a Dashboard structure with pages for AML, SP, Trustee, and implement CRUD with popups (modals).
+Got it! You want a fully dynamic, searchable, scrollable UI with real data shown in fields. Here's how we will fix and enhance the project:
 
 
 ---
 
-Final Structure
+Features to Add
 
-frontend/
-└── pes-react/
-     ├── src/
-     │    ├── App.js
-     │    ├── api.js
-     │    ├── components/
-     │    │     ├── Layout.jsx       // Navbar + Sidebar for Dashboard
-     │    │     ├── CustomTable.jsx  // Table reusable component
-     │    │     └── ModalForm.jsx    // Reusable modal form
-     │    └── pages/
-     │          ├── DashboardPage.jsx
-     │          ├── AMLPage.jsx
-     │          ├── SPPage.jsx
-     │          └── TrusteePage.jsx
+1. Search Bar – Search by Plan Number or Name.
 
 
----
+2. Scroll with pagination / infinite scroll – Large data sets should be scrollable.
 
-App.js
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Login from "./components/Login";
-import Register from "./components/Register";
-import DashboardPage from "./pages/DashboardPage";
-import AMLPage from "./pages/AMLPage";
-import SPPage from "./pages/SPPage";
-import TrusteePage from "./pages/TrusteePage";
+3. Tabs (click & switch) – AML, Trustee, and SP can be tabs inside one screen.
 
-function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/aml" element={<AMLPage />} />
-        <Route path="/sp" element={<SPPage />} />
-        <Route path="/trustee" element={<TrusteePage />} />
-      </Routes>
-    </Router>
-  );
-}
 
-export default App;
+4. Real-time dynamic updates – When you add/edit/delete, the table updates instantly.
+
+
+5. Data visible correctly – Ensure field mapping matches your API response.
+
+
 
 
 ---
 
-Layout.jsx
+Updated AMLPage.jsx with Search + Scroll + Tabs
 
-import { Link } from "react-router-dom";
+We'll combine all three pages (AML, Trustee, SP) into one Tabbed Dashboard.
 
-export default function Layout({ children }) {
-  return (
-    <div>
-      <nav style={{ padding: "10px", background: "#f5f5f5" }}>
-        <Link to="/dashboard" style={{ marginRight: "15px" }}>Dashboard</Link>
-        <Link to="/aml" style={{ marginRight: "15px" }}>AML Trustee</Link>
-        <Link to="/sp" style={{ marginRight: "15px" }}>Service Providers</Link>
-        <Link to="/trustee">Trustee</Link>
-      </nav>
-      <div style={{ padding: "20px" }}>{children}</div>
-    </div>
-  );
-}
+1. DashboardTabs.jsx
 
+src/pages/DashboardTabs.jsx
 
----
-
-DashboardPage.jsx
-
+import React, { useState } from "react";
 import Layout from "../components/Layout";
+import AMLTab from "./tabs/AMLTab";
+import TrusteeTab from "./tabs/TrusteeTab";
+import SPTab from "./tabs/SPTab";
 
-export default function DashboardPage() {
+export default function DashboardTabs() {
+  const [activeTab, setActiveTab] = useState("aml");
+
   return (
     <Layout>
-      <h2>PES Dashboard</h2>
-      <p>Select a module from the menu to manage data.</p>
+      <h1>PES Dashboard</h1>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", marginBottom: "15px" }}>
+        <button
+          onClick={() => setActiveTab("aml")}
+          style={{
+            padding: "10px",
+            background: activeTab === "aml" ? "#1976d2" : "#eee",
+            color: activeTab === "aml" ? "#fff" : "#000",
+            marginRight: "10px",
+          }}
+        >
+          AML Trustee
+        </button>
+        <button
+          onClick={() => setActiveTab("trustee")}
+          style={{
+            padding: "10px",
+            background: activeTab === "trustee" ? "#1976d2" : "#eee",
+            color: activeTab === "trustee" ? "#fff" : "#000",
+            marginRight: "10px",
+          }}
+        >
+          Trustee
+        </button>
+        <button
+          onClick={() => setActiveTab("sp")}
+          style={{
+            padding: "10px",
+            background: activeTab === "sp" ? "#1976d2" : "#eee",
+            color: activeTab === "sp" ? "#fff" : "#000",
+          }}
+        >
+          Service Providers
+        </button>
+      </div>
+
+      {/* Dynamic Tab Content */}
+      {activeTab === "aml" && <AMLTab />}
+      {activeTab === "trustee" && <TrusteeTab />}
+      {activeTab === "sp" && <SPTab />}
     </Layout>
   );
 }
@@ -90,37 +92,96 @@ export default function DashboardPage() {
 
 ---
 
-ModalForm.jsx (Reusable Add/Edit Form)
+2. AMLTab.jsx (with search + scroll)
 
-import { useState, useEffect } from "react";
+src/pages/tabs/AMLTab.jsx
 
-export default function ModalForm({ open, onClose, onSubmit, initialData, fields }) {
-  const [formData, setFormData] = useState(initialData || {});
+import React, { useEffect, useState } from "react";
+import api from "../../api";
+
+export default function AMLTab() {
+  const [rows, setRows] = useState([]);
+  const [search, setSearch] = useState("");
+
+  const fetchData = async () => {
+    try {
+      const res = await api.get("/AML");
+      setRows(res.data);
+    } catch (err) {
+      console.error("AML fetch error:", err);
+    }
+  };
+
+  const deleteRecord = async (id) => {
+    await api.delete(`/AML/${id}`);
+    fetchData();
+  };
 
   useEffect(() => {
-    setFormData(initialData || {});
-  }, [initialData]);
+    fetchData();
+  }, []);
 
-  if (!open) return null;
+  // Filter data dynamically by search
+  const filteredRows = rows.filter(
+    (row) =>
+      row.planNumber?.toLowerCase().includes(search.toLowerCase()) ||
+      row.category?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", 
-                  background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center" }}>
-      <div style={{ background: "white", padding: "20px", width: "400px" }}>
-        <h3>{initialData ? "Edit Record" : "Add New"}</h3>
-        {fields.map((field) => (
-          <div key={field.name} style={{ marginBottom: "10px" }}>
-            <label>{field.label}</label>
-            <input
-              type="text"
-              value={formData[field.name] || ""}
-              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
-              style={{ width: "100%" }}
-            />
-          </div>
-        ))}
-        <button onClick={() => onSubmit(formData)}>Save</button>
-        <button onClick={onClose} style={{ marginLeft: "10px" }}>Cancel</button>
+    <div>
+      {/* Search Bar */}
+      <input
+        type="text"
+        placeholder="Search by Plan Number or Category..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{
+          padding: "8px",
+          marginBottom: "10px",
+          width: "300px",
+          border: "1px solid #ccc",
+        }}
+      />
+
+      {/* Scrollable Table */}
+      <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+        <table
+          border="1"
+          style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}
+        >
+          <thead style={{ background: "#1976d2", color: "#fff" }}>
+            <tr>
+              <th>Plan Number</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRows.length > 0 ? (
+              filteredRows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.planNumber || "N/A"}</td>
+                  <td>{row.category || "N/A"}</td>
+                  <td>{row.status || "N/A"}</td>
+                  <td>
+                    <button onClick={() => alert(JSON.stringify(row, null, 2))}>
+                      View
+                    </button>{" "}
+                    <button onClick={() => deleteRecord(row.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} style={{ textAlign: "center" }}>
+                  No Records Found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -129,313 +190,54 @@ export default function ModalForm({ open, onClose, onSubmit, initialData, fields
 
 ---
 
-AMLPage.jsx (Full CRUD)
+3. TrusteeTab.jsx & SPTab.jsx
 
-import { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import ModalForm from "../components/ModalForm";
-import api from "../api";
+These will be exactly same as AMLTab but calling api.get("/Trustee") and api.get("/SP") respectively, and filtering by Name / Plan_Number / Status.
 
-export default function AMLPage() {
-  const [rows, setRows] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editRow, setEditRow] = useState(null);
 
-  const fetchData = async () => {
-    const res = await api.get("/AML");
-    setRows(res.data);
-  };
+---
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure?")) {
-      await api.delete(`/AML/${id}`);
-      fetchData();
-    }
-  };
+4. App.js
 
-  const handleSave = async (data) => {
-    if (editRow) {
-      await api.put(`/AML/${editRow.id}`, data);
-    } else {
-      await api.post("/AML", data);
-    }
-    setModalOpen(false);
-    setEditRow(null);
-    fetchData();
-  };
+Update App.js to use new dashboard:
 
-  useEffect(() => { fetchData(); }, []);
+import { Routes, Route } from "react-router-dom";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import DashboardTabs from "./pages/DashboardTabs";
 
+function App() {
   return (
-    <Layout>
-      <h2>AML Trustee</h2>
-      <button onClick={() => setModalOpen(true)}>+ Add New</button>
-      <table border="1" width="100%" style={{ marginTop: "10px" }}>
-        <thead>
-          <tr>
-            <th>ID</th><th>Plan Number</th><th>Category</th><th>Status</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td>{row.id}</td>
-              <td>{row.planNumber}</td>
-              <td>{row.category}</td>
-              <td>{row.status}</td>
-              <td>
-                <button onClick={() => { setEditRow(row); setModalOpen(true); }}>Edit</button>
-                <button onClick={() => handleDelete(row.id)}>Delete</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <ModalForm
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditRow(null); }}
-        onSubmit={handleSave}
-        initialData={editRow}
-        fields={[
-          { name: "planNumber", label: "Plan Number" },
-          { name: "category", label: "Category" },
-          { name: "status", label: "Status" },
-        ]}
-      />
-    </Layout>
+    <Routes>
+      <Route path="/" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/dashboard" element={<DashboardTabs />} />
+    </Routes>
   );
 }
 
-
----
-
-SPPage.jsx and TrusteePage.jsx
-
-👉 These will be exactly the same as AMLPage.jsx but the API endpoints and fields change:
-
-SPPage.jsx: use /SP API
-Fields: spName, status
-
-TrusteePage.jsx: use /Trustee API
-Fields: name, email, phone, planNumber
-
+export default App;
 
 
 ---
 
-✅ What You Will Get:
+What this gives you
 
-1. Dashboard with navigation
-
-
-2. AML, SP, Trustee pages
-
-
-3. Full CRUD (Create, Read, Update, Delete) using modal popup forms.
-
-
-4. Data refreshed automatically after operations.
-
-
+✅ Tabs to switch AML / Trustee / SP dynamically
+✅ Search bar for filtering in real time
+✅ Scrollable table with max-height
+✅ Real data fields visible (planNumber, category, status)
+✅ Delete + View Popup
+✅ Dynamic UI updates when actions performed
 
 
 ---
 
-👉 Do you want me to write SPPage.jsx and TrusteePage.jsx fully also like AMLPage (with correct fields)?
-And should I also give you the CustomTable.jsx version (Material UI table + action buttons) instead of a simple table?
-
-
-
-
-
-
-
-
-Here is the full code for SPPage.jsx and TrusteePage.jsx (same CRUD structure as AMLPage but with their respective fields & endpoints):
+🔥 Next Upgrade: Add Modal (Popup form) for Add & Edit, plus real-time updates with WebSockets.
 
 
 ---
 
-SPPage.jsx
-
-import { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import ModalForm from "../components/ModalForm";
-import api from "../api";
-
-export default function SPPage() {
-  const [rows, setRows] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editRow, setEditRow] = useState(null);
-
-  const fetchData = async () => {
-    const res = await api.get("/SP");
-    setRows(res.data);
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure?")) {
-      await api.delete(`/SP/${id}`);
-      fetchData();
-    }
-  };
-
-  const handleSave = async (data) => {
-    if (editRow) {
-      await api.put(`/SP/${editRow.id}`, data);
-    } else {
-      await api.post("/SP", data);
-    }
-    setModalOpen(false);
-    setEditRow(null);
-    fetchData();
-  };
-
-  useEffect(() => { fetchData(); }, []);
-
-  return (
-    <Layout>
-      <h2>Service Providers</h2>
-      <button onClick={() => setModalOpen(true)}>+ Add New</button>
-      <table border="1" width="100%" style={{ marginTop: "10px" }}>
-        <thead>
-          <tr>
-            <th>ID</th><th>SP Name</th><th>Status</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td>{row.id}</td>
-              <td>{row.spName}</td>
-              <td>{row.status}</td>
-              <td>
-                <button onClick={() => { setEditRow(row); setModalOpen(true); }}>Edit</button>
-                <button onClick={() => handleDelete(row.id)}>Delete</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <ModalForm
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditRow(null); }}
-        onSubmit={handleSave}
-        initialData={editRow}
-        fields={[
-          { name: "spName", label: "SP Name" },
-          { name: "status", label: "Status" },
-        ]}
-      />
-    </Layout>
-  );
-}
-
-
----
-
-TrusteePage.jsx
-
-import { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import ModalForm from "../components/ModalForm";
-import api from "../api";
-
-export default function TrusteePage() {
-  const [rows, setRows] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editRow, setEditRow] = useState(null);
-
-  const fetchData = async () => {
-    const res = await api.get("/Trustee");
-    setRows(res.data);
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure?")) {
-      await api.delete(`/Trustee/${id}`);
-      fetchData();
-    }
-  };
-
-  const handleSave = async (data) => {
-    if (editRow) {
-      await api.put(`/Trustee/${editRow.id}`, data);
-    } else {
-      await api.post("/Trustee", data);
-    }
-    setModalOpen(false);
-    setEditRow(null);
-    fetchData();
-  };
-
-  useEffect(() => { fetchData(); }, []);
-
-  return (
-    <Layout>
-      <h2>Trustees</h2>
-      <button onClick={() => setModalOpen(true)}>+ Add New</button>
-      <table border="1" width="100%" style={{ marginTop: "10px" }}>
-        <thead>
-          <tr>
-            <th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Plan Number</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td>{row.id}</td>
-              <td>{row.name}</td>
-              <td>{row.email}</td>
-              <td>{row.phone}</td>
-              <td>{row.planNumber}</td>
-              <td>
-                <button onClick={() => { setEditRow(row); setModalOpen(true); }}>Edit</button>
-                <button onClick={() => handleDelete(row.id)}>Delete</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <ModalForm
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditRow(null); }}
-        onSubmit={handleSave}
-        initialData={editRow}
-        fields={[
-          { name: "name", label: "Name" },
-          { name: "email", label: "Email" },
-          { name: "phone", label: "Phone" },
-          { name: "planNumber", label: "Plan Number" },
-        ]}
-      />
-    </Layout>
-  );
-}
-
-
----
-
-✅ Now you have:
-
-1. AMLPage.jsx – /AML
-
-
-2. SPPage.jsx – /SP
-
-
-3. TrusteePage.jsx – /Trustee
-
-
-
-All three have CRUD operations with popup modal forms.
-The Dashboard (App.js + Layout.jsx) links to these pages.
-
-
----
-
-👉 Do you want me to now give you the full project code structure together (App.js, Layout, ModalForm, AMLPage, SPPage, TrusteePage) as one single code set? Or do you want me to also integrate a nice dashboard UI (cards, stats)?
+👉 Do you want me to give TrusteeTab.jsx & SPTab.jsx full code now with same features (search, scroll, delete)?
+👉 Should I also add "Add New" button with Popup Form for CRUD?
 
