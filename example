@@ -8,28 +8,30 @@ import {
   TableCell,
   TableBody,
   Container,
+  TextField,
 } from "@mui/material";
 
 export default function AMLList() {
   const [amlList, setAmlList] = useState([]);
+  const [search, setSearch] = useState("");
 
   // Fetch AML data
   const fetchAML = async () => {
     try {
-      const res = await api.get("/AML"); // Correct API
+      const res = await api.get("/AML");
       setAmlList(res.data);
     } catch (err) {
       console.error("Error fetching AML data:", err);
     }
   };
 
-  // Delete AML record (using plan_Number as ID)
-  const deleteAML = async (planNumber) => {
+  // Delete AML record using AML_ID
+  const deleteAML = async (id) => {
     try {
-      await api.delete(`/AML/${planNumber}`);
+      await api.delete(`/AML/${id}`);
       fetchAML();
     } catch (err) {
-      console.error("Error deleting AML record:", err);
+      console.error("Error deleting AML:", err);
     }
   };
 
@@ -37,36 +39,52 @@ export default function AMLList() {
     fetchAML();
   }, []);
 
+  // Filter data using search text
+  const filtered = amlList.filter((aml) =>
+    aml.plan_Number?.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <Container style={{ marginTop: "20px" }}>
       <h2>AML Records</h2>
+
+      <TextField
+        label="Search by Plan Number"
+        variant="outlined"
+        size="small"
+        style={{ marginBottom: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       <Table>
         <TableHead>
           <TableRow>
+            <TableCell>AML_ID</TableCell>
             <TableCell>Plan Number</TableCell>
             <TableCell>Status</TableCell>
             <TableCell>Compliance Date</TableCell>
             <TableCell>Comments</TableCell>
+            <TableCell>Created On</TableCell>
             <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {amlList.length > 0 ? (
-            amlList.map((aml, index) => (
-              <TableRow key={index}>
+          {filtered.length > 0 ? (
+            filtered.map((aml) => (
+              <TableRow key={aml.aml_ID}>
+                <TableCell>{aml.aml_ID}</TableCell>
                 <TableCell>{aml.plan_Number}</TableCell>
                 <TableCell>{aml.status}</TableCell>
                 <TableCell>
-                  {aml.compliance_Date
-                    ? new Date(aml.compliance_Date).toLocaleDateString()
-                    : "-"}
+                  {new Date(aml.compliance_Date).toLocaleString()}
                 </TableCell>
                 <TableCell>{aml.comments || "-"}</TableCell>
                 <TableCell>
-                  <Button
-                    color="error"
-                    onClick={() => deleteAML(aml.plan_Number)}
-                  >
+                  {new Date(aml.created_On).toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  <Button color="error" onClick={() => deleteAML(aml.aml_ID)}>
                     Delete
                   </Button>
                 </TableCell>
@@ -74,7 +92,7 @@ export default function AMLList() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={5} style={{ textAlign: "center" }}>
+              <TableCell colSpan={7} style={{ textAlign: "center" }}>
                 No records found
               </TableCell>
             </TableRow>
