@@ -1,56 +1,216 @@
-// src/components/CustomTable.jsx
-import React, { useState } from "react";
+The two problems you are facing ("No records found" and planNumber error) are related to data not being fetched or handled correctly. Let me break it down:
 
-export default function CustomTable({ columns, rows, searchField, onEdit, onDelete }) {
-  const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredRows = rows.filter((row) => {
-    const value = row[searchField];
-    return value && value.toString().toLowerCase().includes(searchTerm.toLowerCase());
-  });
+---
+
+1️⃣ Why "No records found"?
+
+This happens because:
+
+The API is returning an empty array or the request is failing silently.
+
+Or the column names in your frontend don’t match the keys returned by the API.
+
+
+
+---
+
+2️⃣ Why Cannot read properties of undefined (reading 'planNumber')?
+
+This happens because:
+
+When you open the Add/Edit ModalForm, your form is trying to read row.planNumber, but the row is undefined for a new record.
+
+Or the fields array in ModalForm is misconfigured.
+
+
+
+---
+
+
+---
+
+Step-by-step Fix
+
+
+---
+
+A. Fix Data Fetching in AMLPage.jsx
+
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import CustomTable from "../components/CustomTable";
+import ModalForm from "../components/ModalForm";
+import api from "../api";
+
+export default function AMLPage() {
+  const [rows, setRows] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
+
+  // Fetch data
+  const fetchAML = async () => {
+    try {
+      const res = await api.get("/AML");
+      console.log("Fetched AML:", res.data); // Debug
+      setRows(res.data);
+    } catch (err) {
+      console.error("Error fetching AML:", err);
+    }
+  };
+
+  // Add new record
+  const handleAdd = async (data) => {
+    try {
+      await api.post("/AML", data);
+      setOpen(false);
+      fetchAML();
+    } catch (err) {
+      console.error("Error adding AML:", err);
+    }
+  };
+
+  // Edit record
+  const handleEdit = async (data) => {
+    try {
+      await api.put(`/AML/${data.aml_ID}`, data);
+      setOpen(false);
+      fetchAML();
+    } catch (err) {
+      console.error("Error updating AML:", err);
+    }
+  };
+
+  // Delete record
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/AML/${id}`);
+      fetchAML();
+    } catch (err) {
+      console.error("Error deleting AML:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAML();
+  }, []);
 
   return (
-    <div className="table-container">
-      <div className="table-header">
-        <input
-          type="text"
-          placeholder={`Search by ${searchField}`}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
+    <Layout>
+      <h2>AML Records</h2>
+      <button onClick={() => { setEditRow(null); setOpen(true); }}>
+        + Add AML
+      </button>
 
-      <table>
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col.field}>{col.headerName}</th>
-            ))}
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredRows.length > 0 ? (
-            filteredRows.map((row) => (
-              <tr key={row.id || row._id || Math.random()}>
-                {columns.map((col) => (
-                  <td key={col.field}>{row[col.field] || "-"}</td>
-                ))}
-                <td>
-                  <button onClick={() => onEdit(row)}>✏️ Edit</button>
-                  <button onClick={() => onDelete(row.aml_ID || row.sp_ID || row.trustee_ID)}>🗑 Delete</button>
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={columns.length + 1} style={{ textAlign: "center" }}>
-                No records found
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      <CustomTable
+        searchField="planNumber"
+        columns={[
+          { field: "planNumber", headerName: "Plan Number" },
+          { field: "status", headerName: "Status" },
+          { field: "complianceDate", headerName: "Compliance Date" },
+          { field: "comments", headerName: "Comments" },
+        ]}
+        rows={rows}
+        onEdit={(row) => { setEditRow(row); setOpen(true); }}
+        onDelete={handleDelete}
+      />
+
+      {/* ModalForm for Add/Edit */}
+      <ModalForm
+        open={open}
+        onClose={() => setOpen(false)}
+        initialData={editRow}
+        fields={[
+          { name: "planNumber", label: "Plan Number" },
+          { name: "status", label: "Status" },
+          { name: "complianceDate", label: "Compliance Date", type: "date" },
+          { name: "comments", label: "Comments" },
+        ]}
+        onSubmit={(data) => editRow ? handleEdit(data) : handleAdd(data)}
+      />
+    </Layout>
+  );
+}
+
+
+---
+
+B. Fix ModalForm.jsx
+
+Your ModalForm must handle new rows (no data yet) safely:
+
+import React, { useState, useEffect } from "react";
+
+export default function ModalForm({ open, onClose, initialData, fields, onSubmit }) {
+  const [formData, setFormData] = useState({});
+
+  useEffect(() => {
+    // If initialData is null (Add Mode), set empty fields
+    const defaultData = {};
+    fields.forEach((f) => defaultData[f.name] = initialData ? initialData[f.name] || "" : "");
+    setFormData(defaultData);
+  }, [initialData, fields]);
+
+  if (!open) return null;
+
+  return (
+    <div className="modal">
+      <div className="modal-content">
+        <h3>{initialData ? "Edit Record" : "Add Record"}</h3>
+        {fields.map((f) => (
+          <div key={f.name}>
+            <label>{f.label}</label>
+            <input
+              type={f.type || "text"}
+              value={formData[f.name] || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, [f.name]: e.target.value })
+              }
+            />
+          </div>
+        ))}
+
+        <button onClick={() => onSubmit(formData)}>Save</button>
+        <button onClick={onClose}>Cancel</button>
+      </div>
     </div>
   );
 }
+
+This prevents the undefined.planNumber error.
+
+
+---
+
+C. Insert Sample Data in Database
+
+If fetchAML() shows empty array, your DB has no data:
+
+INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
+VALUES
+('PL001', 'Active', GETDATE(), 'AML Compliance check 1'),
+('PL002', 'Inactive', GETDATE(), 'AML Compliance check 2');
+
+
+---
+
+D. Test in Browser
+
+1. Open Dev Tools (F12) → check Console & Network tabs.
+
+
+2. Ensure /api/AML GET request returns data.
+
+
+3. Try Add/Edit/Delete → verify in DB.
+
+
+
+
+---
+
+👉 Do you want me to fix the same issues for SPPage & TrusteePage (CRUD + search + ModalForm) with proper column mapping?
+
+👉 And also add search bar + pagination + better UI with Material-UI? Would you prefer tabs in Dashboard (AML, SP, Trustee) or separate pages?
+
+
