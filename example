@@ -9,12 +9,20 @@ import {
   TableBody,
   Container,
   TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
 } from "@mui/material";
 
 export default function TrusteeList() {
   const [trustees, setTrustees] = useState([]);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", planNumber: "" });
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
 
+  // Fetch Data
   const fetchTrustees = async () => {
     try {
       const res = await api.get("/Trustee");
@@ -24,7 +32,41 @@ export default function TrusteeList() {
     }
   };
 
-  const deleteTrustee = async (id) => {
+  useEffect(() => {
+    fetchTrustees();
+  }, []);
+
+  // Save (Add or Edit)
+  const handleSave = async () => {
+    try {
+      if (editId) {
+        await api.put(`/Trustee/${editId}`, form);
+      } else {
+        await api.post("/Trustee", form);
+      }
+      fetchTrustees();
+      setOpen(false);
+      setForm({ name: "", email: "", phone: "", planNumber: "" });
+      setEditId(null);
+    } catch (err) {
+      console.error("Error saving trustee:", err);
+    }
+  };
+
+  // Edit
+  const handleEdit = (t) => {
+    setForm({
+      name: t.name || t.Name,
+      email: t.email || t.Email,
+      phone: t.phone || t.Phone,
+      planNumber: t.plan_Number || t.Plan_Number,
+    });
+    setEditId(t.trustee_ID || t.Trustee_ID);
+    setOpen(true);
+  };
+
+  // Delete
+  const handleDelete = async (id) => {
     try {
       await api.delete(`/Trustee/${id}`);
       fetchTrustees();
@@ -33,51 +75,46 @@ export default function TrusteeList() {
     }
   };
 
-  useEffect(() => {
-    fetchTrustees();
-  }, []);
-
+  // Search
   const filtered = trustees.filter((t) =>
-    t.name?.toLowerCase().includes(search.toLowerCase())
+    (t.name || t.Name).toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <Container style={{ marginTop: "20px" }}>
+    <Container>
       <h2>Trustee Records</h2>
+      <Button variant="contained" onClick={() => setOpen(true)}>Add Trustee</Button>
       <TextField
         label="Search by Name"
-        variant="outlined"
         size="small"
-        style={{ marginBottom: "10px" }}
+        style={{ margin: "10px" }}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
+
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell>Trustee ID</TableCell>
+            <TableCell>Trustee_ID</TableCell>
             <TableCell>Name</TableCell>
             <TableCell>Email</TableCell>
             <TableCell>Phone</TableCell>
             <TableCell>Plan Number</TableCell>
-            <TableCell>Created On</TableCell>
             <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {filtered.length > 0 ? (
             filtered.map((t) => (
-              <TableRow key={t.trustee_ID}>
-                <TableCell>{t.trustee_ID}</TableCell>
-                <TableCell>{t.name}</TableCell>
-                <TableCell>{t.email}</TableCell>
-                <TableCell>{t.phone}</TableCell>
-                <TableCell>{t.plan_Number}</TableCell>
+              <TableRow key={t.trustee_ID || t.Trustee_ID}>
+                <TableCell>{t.trustee_ID || t.Trustee_ID}</TableCell>
+                <TableCell>{t.name || t.Name}</TableCell>
+                <TableCell>{t.email || t.Email}</TableCell>
+                <TableCell>{t.phone || t.Phone}</TableCell>
+                <TableCell>{t.plan_Number || t.Plan_Number}</TableCell>
                 <TableCell>
-                  {new Date(t.created_On).toLocaleString()}
-                </TableCell>
-                <TableCell>
-                  <Button color="error" onClick={() => deleteTrustee(t.trustee_ID)}>
+                  <Button onClick={() => handleEdit(t)}>Edit</Button>
+                  <Button color="error" onClick={() => handleDelete(t.trustee_ID || t.Trustee_ID)}>
                     Delete
                   </Button>
                 </TableCell>
@@ -85,110 +122,30 @@ export default function TrusteeList() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} style={{ textAlign: "center" }}>
-                No records found
-              </TableCell>
+              <TableCell colSpan={6} align="center">No records found</TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
-    </Container>
-  );
-}
 
-
-import React, { useEffect, useState } from "react";
-import api from "../api";
-import {
-  Button,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Container,
-  TextField,
-} from "@mui/material";
-
-export default function SPList() {
-  const [spList, setSpList] = useState([]);
-  const [search, setSearch] = useState("");
-
-  const fetchSP = async () => {
-    try {
-      const res = await api.get("/SP");
-      setSpList(res.data);
-    } catch (err) {
-      console.error("Error fetching SP data:", err);
-    }
-  };
-
-  const deleteSP = async (id) => {
-    try {
-      await api.delete(`/SP/${id}`);
-      fetchSP();
-    } catch (err) {
-      console.error("Error deleting SP:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchSP();
-  }, []);
-
-  const filtered = spList.filter((sp) =>
-    sp.name?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <Container style={{ marginTop: "20px" }}>
-      <h2>Service Provider Records</h2>
-      <TextField
-        label="Search by Name"
-        variant="outlined"
-        size="small"
-        style={{ marginBottom: "10px" }}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>SP ID</TableCell>
-            <TableCell>Name</TableCell>
-            <TableCell>Service Type</TableCell>
-            <TableCell>Trustee ID</TableCell>
-            <TableCell>Created On</TableCell>
-            <TableCell>Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filtered.length > 0 ? (
-            filtered.map((sp) => (
-              <TableRow key={sp.sp_ID}>
-                <TableCell>{sp.sp_ID}</TableCell>
-                <TableCell>{sp.name}</TableCell>
-                <TableCell>{sp.service_Type}</TableCell>
-                <TableCell>{sp.trustee_ID}</TableCell>
-                <TableCell>
-                  {new Date(sp.created_On).toLocaleString()}
-                </TableCell>
-                <TableCell>
-                  <Button color="error" onClick={() => deleteSP(sp.sp_ID)}>
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={6} style={{ textAlign: "center" }}>
-                No records found
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+      {/* Modal Form */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{editId ? "Edit Trustee" : "Add Trustee"}</DialogTitle>
+        <DialogContent>
+          <TextField fullWidth label="Name" margin="normal"
+            value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <TextField fullWidth label="Email" margin="normal"
+            value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <TextField fullWidth label="Phone" margin="normal"
+            value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <TextField fullWidth label="Plan Number" margin="normal"
+            value={form.planNumber} onChange={(e) => setForm({ ...form, planNumber: e.target.value })} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>Save</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
