@@ -1,44 +1,101 @@
-[HttpPost("register")]
-public async Task<IActionResult> Register(string email, string password)
-{
-    // 1️⃣ Validate email format
-    if (string.IsNullOrWhiteSpace(email) || !IsValidEmail(email))
-        return BadRequest("Invalid email format. Please use a valid email address.");
+[import React, { useState } from "react";
+import { Button, TextField, Container, Typography, Alert } from "@mui/material";
+import api from "../api"; // axios instance
+import { useNavigate } from "react-router-dom";
 
-    // 2️⃣ Create user
-    var user = new AppUser { UserName = email, Email = email };
-    var result = await _userManager.CreateAsync(user, password);
-    if (!result.Succeeded) return BadRequest(result.Errors);
+export default function Register() {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("User"); // default role
+  const [error, setError] = useState(""); // error message
+  const navigate = useNavigate();
 
-    return Ok("User registered successfully");
-}
+  const handleRegister = async () => {
+    setError(""); // clear error
 
-// Helper method for email validation
-private bool IsValidEmail(string email)
-{
-    try
-    {
-        var addr = new System.Net.Mail.MailAddress(email);
-        return addr.Address == email;
+    // ✅ Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return;
     }
-    catch
-    {
-        return false;
+
+    // ✅ Password validation (same as backend)
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError(
+        "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+      );
+      return;
     }
-}
 
+    try {
+      await api.post("/auth/register", { username, email, password, role });
+      alert("User Registered Successfully");
+      navigate("/"); // redirect to login
+    } catch (err) {
+      setError(
+        "Registration Failed: " +
+          (err.response?.data || err.message)
+      );
+    }
+  };
 
+  return (
+    <Container maxWidth="sm" sx={{ mt: 5 }}>
+      <Typography variant="h4" gutterBottom align="center">
+        Register
+      </Typography>
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      {/* Show error message if any */}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-if (!emailRegex.test(email)) {
-  alert("Please enter a valid email address");
-  return;
-}
+      <TextField
+        label="Username"
+        fullWidth
+        margin="normal"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
 
+      <TextField
+        label="Email"
+        fullWidth
+        margin="normal"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
 
+      <TextField
+        label="Password"
+        type="password"
+        fullWidth
+        margin="normal"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
 
-Perfect! Let’s add password constraints along with the email validation so users must create strong passwords.
+      <TextField
+        label="Role (Admin/User)"
+        fullWidth
+        margin="normal"
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+      />
+
+      <Button
+        variant="contained"
+        fullWidth
+        sx={{ mt: 2, py: 1 }}
+        onClick={handleRegister}
+      >
+        Register
+      </Button>
+    </Container>
+  );
+}.
 
 
 ---
