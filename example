@@ -11,80 +11,73 @@ import {
   TextField,
 } from "@mui/material";
 
-export default function AMLList() {
-  const [amlList, setAmlList] = useState([]);
+export default function TrusteeList() {
+  const [trustees, setTrustees] = useState([]);
   const [search, setSearch] = useState("");
 
-  // Fetch AML data
-  const fetchAML = async () => {
+  const fetchTrustees = async () => {
     try {
-      const res = await api.get("/AML");
-      setAmlList(res.data);
+      const res = await api.get("/Trustee");
+      setTrustees(res.data);
     } catch (err) {
-      console.error("Error fetching AML data:", err);
+      console.error("Error fetching trustees:", err);
     }
   };
 
-  // Delete AML record using AML_ID
-  const deleteAML = async (id) => {
+  const deleteTrustee = async (id) => {
     try {
-      await api.delete(`/AML/${id}`);
-      fetchAML();
+      await api.delete(`/Trustee/${id}`);
+      fetchTrustees();
     } catch (err) {
-      console.error("Error deleting AML:", err);
+      console.error("Error deleting trustee:", err);
     }
   };
 
   useEffect(() => {
-    fetchAML();
+    fetchTrustees();
   }, []);
 
-  // Filter data using search text
-  const filtered = amlList.filter((aml) =>
-    aml.plan_Number?.toLowerCase().includes(search.toLowerCase())
+  const filtered = trustees.filter((t) =>
+    t.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <Container style={{ marginTop: "20px" }}>
-      <h2>AML Records</h2>
-
+      <h2>Trustee Records</h2>
       <TextField
-        label="Search by Plan Number"
+        label="Search by Name"
         variant="outlined"
         size="small"
         style={{ marginBottom: "10px" }}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell>AML_ID</TableCell>
+            <TableCell>Trustee ID</TableCell>
+            <TableCell>Name</TableCell>
+            <TableCell>Email</TableCell>
+            <TableCell>Phone</TableCell>
             <TableCell>Plan Number</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell>Compliance Date</TableCell>
-            <TableCell>Comments</TableCell>
             <TableCell>Created On</TableCell>
             <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {filtered.length > 0 ? (
-            filtered.map((aml) => (
-              <TableRow key={aml.aml_ID}>
-                <TableCell>{aml.aml_ID}</TableCell>
-                <TableCell>{aml.plan_Number}</TableCell>
-                <TableCell>{aml.status}</TableCell>
+            filtered.map((t) => (
+              <TableRow key={t.trustee_ID}>
+                <TableCell>{t.trustee_ID}</TableCell>
+                <TableCell>{t.name}</TableCell>
+                <TableCell>{t.email}</TableCell>
+                <TableCell>{t.phone}</TableCell>
+                <TableCell>{t.plan_Number}</TableCell>
                 <TableCell>
-                  {new Date(aml.compliance_Date).toLocaleString()}
-                </TableCell>
-                <TableCell>{aml.comments || "-"}</TableCell>
-                <TableCell>
-                  {new Date(aml.created_On).toLocaleString()}
+                  {new Date(t.created_On).toLocaleString()}
                 </TableCell>
                 <TableCell>
-                  <Button color="error" onClick={() => deleteAML(aml.aml_ID)}>
+                  <Button color="error" onClick={() => deleteTrustee(t.trustee_ID)}>
                     Delete
                   </Button>
                 </TableCell>
@@ -93,6 +86,103 @@ export default function AMLList() {
           ) : (
             <TableRow>
               <TableCell colSpan={7} style={{ textAlign: "center" }}>
+                No records found
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </Container>
+  );
+}
+
+
+import React, { useEffect, useState } from "react";
+import api from "../api";
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+  TextField,
+} from "@mui/material";
+
+export default function SPList() {
+  const [spList, setSpList] = useState([]);
+  const [search, setSearch] = useState("");
+
+  const fetchSP = async () => {
+    try {
+      const res = await api.get("/SP");
+      setSpList(res.data);
+    } catch (err) {
+      console.error("Error fetching SP data:", err);
+    }
+  };
+
+  const deleteSP = async (id) => {
+    try {
+      await api.delete(`/SP/${id}`);
+      fetchSP();
+    } catch (err) {
+      console.error("Error deleting SP:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSP();
+  }, []);
+
+  const filtered = spList.filter((sp) =>
+    sp.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <Container style={{ marginTop: "20px" }}>
+      <h2>Service Provider Records</h2>
+      <TextField
+        label="Search by Name"
+        variant="outlined"
+        size="small"
+        style={{ marginBottom: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>SP ID</TableCell>
+            <TableCell>Name</TableCell>
+            <TableCell>Service Type</TableCell>
+            <TableCell>Trustee ID</TableCell>
+            <TableCell>Created On</TableCell>
+            <TableCell>Actions</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {filtered.length > 0 ? (
+            filtered.map((sp) => (
+              <TableRow key={sp.sp_ID}>
+                <TableCell>{sp.sp_ID}</TableCell>
+                <TableCell>{sp.name}</TableCell>
+                <TableCell>{sp.service_Type}</TableCell>
+                <TableCell>{sp.trustee_ID}</TableCell>
+                <TableCell>
+                  {new Date(sp.created_On).toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  <Button color="error" onClick={() => deleteSP(sp.sp_ID)}>
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={6} style={{ textAlign: "center" }}>
                 No records found
               </TableCell>
             </TableRow>
