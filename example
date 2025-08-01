@@ -1,28 +1,35 @@
-Okay! Here's the full corrected code for all pages (AML, Trustee, SP) and ModalForm with CRUD, Search bar, and correct DB column mapping.
-
-
----
-
-1️⃣ AMLPage.jsx
-
 import React, { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import CustomTable from "../components/CustomTable";
-import api from "../api";
-import ModalForm from "../components/ModalForm";
+import api from "../api"; // Axios instance
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+} from "@mui/material";
 
-export default function AMLPage() {
-  const [rows, setRows] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [editData, setEditData] = useState(null);
+export default function AMLList() {
+  const [amlList, setAmlList] = useState([]);
 
-  // Fetch AML Data
+  // Fetch AML data
   const fetchAML = async () => {
     try {
-      const res = await api.get("/AML");
-      setRows(res.data);
-    } catch (error) {
-      console.error("Error fetching AML:", error);
+      const res = await api.get("/AML"); // Correct endpoint for AML table
+      setAmlList(res.data);
+    } catch (err) {
+      console.error("Error fetching AML data:", err);
+    }
+  };
+
+  // Delete AML record
+  const deleteAML = async (id) => {
+    try {
+      await api.delete(`/AML/${id}`);
+      fetchAML();
+    } catch (err) {
+      console.error("Error deleting AML record:", err);
     }
   };
 
@@ -30,305 +37,48 @@ export default function AMLPage() {
     fetchAML();
   }, []);
 
-  // Delete AML Record
-  const handleDelete = async (id) => {
-    await api.delete(`/AML/${id}`);
-    fetchAML();
-  };
-
   return (
-    <Layout>
+    <Container style={{ marginTop: "20px" }}>
       <h2>AML Records</h2>
-      <button onClick={() => setOpenModal(true)}>+ Add AML</button>
-
-      <CustomTable
-        title="AML Trustee"
-        columns={[
-          { field: "AML_ID", headerName: "AML ID" },
-          { field: "Plan_Number", headerName: "Plan Number" },
-          { field: "Status", headerName: "Status" },
-          { field: "Compliance_Date", headerName: "Compliance Date" },
-          { field: "Comments", headerName: "Comments" },
-        ]}
-        filters={[
-          { field: "Plan_Number", label: "Search by Plan Number" },
-        ]}
-        rows={rows}
-        onEdit={(row) => {
-          setEditData(row);
-          setOpenModal(true);
-        }}
-        onDelete={(row) => handleDelete(row.AML_ID)}
-      />
-
-      {openModal && (
-        <ModalForm
-          type="AML"
-          editData={editData}
-          onClose={() => {
-            setOpenModal(false);
-            setEditData(null);
-            fetchAML();
-          }}
-        />
-      )}
-    </Layout>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>AML_ID</TableCell>
+            <TableCell>Plan Number</TableCell>
+            <TableCell>Status</TableCell>
+            <TableCell>Compliance Date</TableCell>
+            <TableCell>Comments</TableCell>
+            <TableCell>Actions</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {amlList.length > 0 ? (
+            amlList.map((aml) => (
+              <TableRow key={aml.aml_ID}>
+                <TableCell>{aml.aml_ID}</TableCell>
+                <TableCell>{aml.plan_Number}</TableCell>
+                <TableCell>{aml.status}</TableCell>
+                <TableCell>{new Date(aml.compliance_Date).toLocaleDateString()}</TableCell>
+                <TableCell>{aml.comments || "-"}</TableCell>
+                <TableCell>
+                  <Button
+                    color="error"
+                    onClick={() => deleteAML(aml.aml_ID)}
+                  >
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={6} style={{ textAlign: "center" }}>
+                No records found
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </Container>
   );
 }
-
-
----
-
-2️⃣ TrusteePage.jsx
-
-import React, { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import CustomTable from "../components/CustomTable";
-import api from "../api";
-import ModalForm from "../components/ModalForm";
-
-export default function TrusteePage() {
-  const [rows, setRows] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [editData, setEditData] = useState(null);
-
-  const fetchTrustees = async () => {
-    const res = await api.get("/Trustee");
-    setRows(res.data);
-  };
-
-  useEffect(() => {
-    fetchTrustees();
-  }, []);
-
-  const handleDelete = async (id) => {
-    await api.delete(`/Trustee/${id}`);
-    fetchTrustees();
-  };
-
-  return (
-    <Layout>
-      <h2>Trustees</h2>
-      <button onClick={() => setOpenModal(true)}>+ Add Trustee</button>
-
-      <CustomTable
-        title="Trustees"
-        columns={[
-          { field: "Trustee_ID", headerName: "Trustee ID" },
-          { field: "Name", headerName: "Name" },
-          { field: "Email", headerName: "Email" },
-          { field: "Phone", headerName: "Phone" },
-          { field: "Plan_Number", headerName: "Plan Number" },
-        ]}
-        filters={[{ field: "Name", label: "Search by Name" }]}
-        rows={rows}
-        onEdit={(row) => {
-          setEditData(row);
-          setOpenModal(true);
-        }}
-        onDelete={(row) => handleDelete(row.Trustee_ID)}
-      />
-
-      {openModal && (
-        <ModalForm
-          type="Trustee"
-          editData={editData}
-          onClose={() => {
-            setOpenModal(false);
-            setEditData(null);
-            fetchTrustees();
-          }}
-        />
-      )}
-    </Layout>
-  );
-}
-
-
----
-
-3️⃣ SPPage.jsx
-
-import React, { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import CustomTable from "../components/CustomTable";
-import api from "../api";
-import ModalForm from "../components/ModalForm";
-
-export default function SPPage() {
-  const [rows, setRows] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [editData, setEditData] = useState(null);
-
-  const fetchSP = async () => {
-    const res = await api.get("/SP");
-    setRows(res.data);
-  };
-
-  useEffect(() => {
-    fetchSP();
-  }, []);
-
-  const handleDelete = async (id) => {
-    await api.delete(`/SP/${id}`);
-    fetchSP();
-  };
-
-  return (
-    <Layout>
-      <h2>Service Providers</h2>
-      <button onClick={() => setOpenModal(true)}>+ Add SP</button>
-
-      <CustomTable
-        title="Service Providers"
-        columns={[
-          { field: "SP_ID", headerName: "SP ID" },
-          { field: "Name", headerName: "SP Name" },
-          { field: "Service_Type", headerName: "Service Type" },
-          { field: "Trustee_ID", headerName: "Trustee ID" },
-        ]}
-        filters={[{ field: "Name", label: "Search by SP Name" }]}
-        rows={rows}
-        onEdit={(row) => {
-          setEditData(row);
-          setOpenModal(true);
-        }}
-        onDelete={(row) => handleDelete(row.SP_ID)}
-      />
-
-      {openModal && (
-        <ModalForm
-          type="SP"
-          editData={editData}
-          onClose={() => {
-            setOpenModal(false);
-            setEditData(null);
-            fetchSP();
-          }}
-        />
-      )}
-    </Layout>
-  );
-}
-
-
----
-
-4️⃣ ModalForm.jsx (Add/Edit)
-
-import React, { useState } from "react";
-import api from "../api";
-
-export default function ModalForm({ type, editData, onClose }) {
-  const [form, setForm] = useState(editData || {});
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async () => {
-    if (editData) {
-      await api.put(`/${type}/${editData[`${type}_ID`]}`, form);
-    } else {
-      await api.post(`/${type}`, form);
-    }
-    onClose();
-  };
-
-  return (
-    <div className="modal">
-      <h3>{editData ? `Edit ${type}` : `Add ${type}`}</h3>
-      {type === "AML" && (
-        <>
-          <input name="Plan_Number" placeholder="Plan Number" value={form.Plan_Number || ""} onChange={handleChange} />
-          <input name="Status" placeholder="Status" value={form.Status || ""} onChange={handleChange} />
-          <input type="date" name="Compliance_Date" value={form.Compliance_Date?.split("T")[0] || ""} onChange={handleChange} />
-          <input name="Comments" placeholder="Comments" value={form.Comments || ""} onChange={handleChange} />
-        </>
-      )}
-      {type === "Trustee" && (
-        <>
-          <input name="Name" placeholder="Name" value={form.Name || ""} onChange={handleChange} />
-          <input name="Email" placeholder="Email" value={form.Email || ""} onChange={handleChange} />
-          <input name="Phone" placeholder="Phone" value={form.Phone || ""} onChange={handleChange} />
-          <input name="Plan_Number" placeholder="Plan Number" value={form.Plan_Number || ""} onChange={handleChange} />
-        </>
-      )}
-      {type === "SP" && (
-        <>
-          <input name="Name" placeholder="SP Name" value={form.Name || ""} onChange={handleChange} />
-          <input name="Service_Type" placeholder="Service Type" value={form.Service_Type || ""} onChange={handleChange} />
-          <input name="Trustee_ID" placeholder="Trustee ID" value={form.Trustee_ID || ""} onChange={handleChange} />
-        </>
-      )}
-      <div>
-        <button onClick={handleSubmit}>{editData ? "Update" : "Add"}</button>
-        <button onClick={onClose}>Cancel</button>
-      </div>
-    </div>
-  );
-}
-
-
----
-
-5️⃣ DashboardPage.jsx (Graph & Counts)
-
-import React, { useEffect, useState } from "react";
-import Layout from "../components/Layout";
-import GraphCard from "../components/GraphCard";
-import api from "../api";
-
-export default function DashboardPage() {
-  const [amlCount, setAmlCount] = useState(0);
-  const [trusteeCount, setTrusteeCount] = useState(0);
-  const [spCount, setSpCount] = useState(0);
-
-  useEffect(() => {
-    async function fetchData() {
-      setAmlCount((await api.get("/AML")).data.length);
-      setTrusteeCount((await api.get("/Trustee")).data.length);
-      setSpCount((await api.get("/SP")).data.length);
-    }
-    fetchData();
-  }, []);
-
-  return (
-    <Layout>
-      <h2>PES Dashboard</h2>
-      <GraphCard title="Data Overview" data={[amlCount, trusteeCount, spCount]} labels={["AML", "Trustee", "SP"]} />
-    </Layout>
-  );
-}
-
-
----
-
-6️⃣ Layout.jsx
-
-import React from "react";
-import { Link } from "react-router-dom";
-
-export default function Layout({ children }) {
-  return (
-    <div>
-      <header>
-        <h1>PES Portal</h1>
-        <nav>
-          <Link to="/dashboard">Dashboard</Link>
-          <Link to="/aml">AML</Link>
-          <Link to="/trustee">Trustee</Link>
-          <Link to="/sp">Service Providers</Link>
-        </nav>
-      </header>
-      <main>{children}</main>
-    </div>
-  );
-}
-
-
----
-
-Now you can perform CRUD, search, and view data correctly.
-👉 Do you want me to fix CustomTable.jsx too so that the search & actions work perfectly? Or should I send full project folder structure with all components zipped?
-
