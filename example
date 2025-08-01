@@ -1,152 +1,207 @@
-Great! Let's start with 1️⃣ Advanced Table UI for AML Trustee & Service Providers with filters and modals.
+Great! We'll create a Dashboard structure with pages for AML, SP, Trustee, and implement CRUD with popups (modals).
 
 
 ---
 
-1️⃣ Project Structure
+Final Structure
 
-We’ll create dedicated pages and reusable table component:
-
-src/
-├── components/
-│   ├── Layout.jsx
-│   └── CustomTable.jsx   <-- Reusable Material UI table with filters + modals
-│
-├── pages/
-│   ├── AMLPage.jsx       <-- AML Trustee table (filtered data)
-│   ├── SPPage.jsx        <-- Service Providers table
-│   └── UploadsPage.jsx   <-- Upload data table
+frontend/
+└── pes-react/
+     ├── src/
+     │    ├── App.js
+     │    ├── api.js
+     │    ├── components/
+     │    │     ├── Layout.jsx       // Navbar + Sidebar for Dashboard
+     │    │     ├── CustomTable.jsx  // Table reusable component
+     │    │     └── ModalForm.jsx    // Reusable modal form
+     │    └── pages/
+     │          ├── DashboardPage.jsx
+     │          ├── AMLPage.jsx
+     │          ├── SPPage.jsx
+     │          └── TrusteePage.jsx
 
 
 ---
 
-2️⃣ Create CustomTable.jsx (Reusable Table)
+App.js
 
-import React, { useState } from "react";
-import {
-  Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions
-} from "@mui/material";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import DashboardPage from "./pages/DashboardPage";
+import AMLPage from "./pages/AMLPage";
+import SPPage from "./pages/SPPage";
+import TrusteePage from "./pages/TrusteePage";
 
-const CustomTable = ({ columns, rows, filters = [], title }) => {
-  const [filterValues, setFilterValues] = useState({});
-  const [openModal, setOpenModal] = useState(false);
-  const [modalData, setModalData] = useState(null);
-
-  // Filter rows dynamically
-  const filteredRows = rows.filter((row) =>
-    Object.entries(filterValues).every(([key, val]) =>
-      val ? String(row[key]).toLowerCase().includes(val.toLowerCase()) : true
-    )
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/aml" element={<AMLPage />} />
+        <Route path="/sp" element={<SPPage />} />
+        <Route path="/trustee" element={<TrusteePage />} />
+      </Routes>
+    </Router>
   );
+}
 
-  const handleOpenModal = (row) => {
-    setModalData(row);
-    setOpenModal(true);
-  };
+export default App;
+
+
+---
+
+Layout.jsx
+
+import { Link } from "react-router-dom";
+
+export default function Layout({ children }) {
+  return (
+    <div>
+      <nav style={{ padding: "10px", background: "#f5f5f5" }}>
+        <Link to="/dashboard" style={{ marginRight: "15px" }}>Dashboard</Link>
+        <Link to="/aml" style={{ marginRight: "15px" }}>AML Trustee</Link>
+        <Link to="/sp" style={{ marginRight: "15px" }}>Service Providers</Link>
+        <Link to="/trustee">Trustee</Link>
+      </nav>
+      <div style={{ padding: "20px" }}>{children}</div>
+    </div>
+  );
+}
+
+
+---
+
+DashboardPage.jsx
+
+import Layout from "../components/Layout";
+
+export default function DashboardPage() {
+  return (
+    <Layout>
+      <h2>PES Dashboard</h2>
+      <p>Select a module from the menu to manage data.</p>
+    </Layout>
+  );
+}
+
+
+---
+
+ModalForm.jsx (Reusable Add/Edit Form)
+
+import { useState, useEffect } from "react";
+
+export default function ModalForm({ open, onClose, onSubmit, initialData, fields }) {
+  const [formData, setFormData] = useState(initialData || {});
+
+  useEffect(() => {
+    setFormData(initialData || {});
+  }, [initialData]);
+
+  if (!open) return null;
 
   return (
-    <Box>
-      {/* Filters */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
-        {filters.map((filter) => (
-          <TextField
-            key={filter.field}
-            label={filter.label}
-            size="small"
-            variant="outlined"
-            onChange={(e) =>
-              setFilterValues({ ...filterValues, [filter.field]: e.target.value })
-            }
-          />
+    <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", 
+                  background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center" }}>
+      <div style={{ background: "white", padding: "20px", width: "400px" }}>
+        <h3>{initialData ? "Edit Record" : "Add New"}</h3>
+        {fields.map((field) => (
+          <div key={field.name} style={{ marginBottom: "10px" }}>
+            <label>{field.label}</label>
+            <input
+              type="text"
+              value={formData[field.name] || ""}
+              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+              style={{ width: "100%" }}
+            />
+          </div>
         ))}
-      </Box>
-
-      {/* Table */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead sx={{ bgcolor: "#E2E8F0" }}>
-            <TableRow>
-              {columns.map((col) => (
-                <TableCell key={col.field}>{col.headerName}</TableCell>
-              ))}
-              <TableCell>Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredRows.map((row, index) => (
-              <TableRow key={index}>
-                {columns.map((col) => (
-                  <TableCell key={col.field}>{row[col.field]}</TableCell>
-                ))}
-                <TableCell>
-                  <Button variant="outlined" size="small" onClick={() => handleOpenModal(row)}>
-                    View
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Modal */}
-      <Dialog open={openModal} onClose={() => setOpenModal(false)}>
-        <DialogTitle>Details</DialogTitle>
-        <DialogContent>
-          {modalData &&
-            Object.entries(modalData).map(([key, val]) => (
-              <p key={key}>
-                <b>{key}:</b> {val}
-              </p>
-            ))}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenModal(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        <button onClick={() => onSubmit(formData)}>Save</button>
+        <button onClick={onClose} style={{ marginLeft: "10px" }}>Cancel</button>
+      </div>
+    </div>
   );
-};
-
-export default CustomTable;
+}
 
 
 ---
 
-3️⃣ Create AMLPage.jsx
+AMLPage.jsx (Full CRUD)
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
-import CustomTable from "../components/CustomTable";
+import ModalForm from "../components/ModalForm";
 import api from "../api";
 
 export default function AMLPage() {
   const [rows, setRows] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
-  useEffect(() => {
-    const fetchAML = async () => {
-      const res = await api.get("/trusteeamlplans");
-      setRows(res.data);
-    };
-    fetchAML();
-  }, []);
+  const fetchData = async () => {
+    const res = await api.get("/AML");
+    setRows(res.data);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure?")) {
+      await api.delete(`/AML/${id}`);
+      fetchData();
+    }
+  };
+
+  const handleSave = async (data) => {
+    if (editRow) {
+      await api.put(`/AML/${editRow.id}`, data);
+    } else {
+      await api.post("/AML", data);
+    }
+    setModalOpen(false);
+    setEditRow(null);
+    fetchData();
+  };
+
+  useEffect(() => { fetchData(); }, []);
 
   return (
     <Layout>
-      <h2>AML Trustee Data</h2>
-      <CustomTable
-        title="AML Trustee"
-        columns={[
-          { field: "planNumber", headerName: "Plan Number" },
-          { field: "category", headerName: "Category" },
-          { field: "status", headerName: "Status" },
+      <h2>AML Trustee</h2>
+      <button onClick={() => setModalOpen(true)}>+ Add New</button>
+      <table border="1" width="100%" style={{ marginTop: "10px" }}>
+        <thead>
+          <tr>
+            <th>ID</th><th>Plan Number</th><th>Category</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>{row.id}</td>
+              <td>{row.planNumber}</td>
+              <td>{row.category}</td>
+              <td>{row.status}</td>
+              <td>
+                <button onClick={() => { setEditRow(row); setModalOpen(true); }}>Edit</button>
+                <button onClick={() => handleDelete(row.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <ModalForm
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditRow(null); }}
+        onSubmit={handleSave}
+        initialData={editRow}
+        fields={[
+          { name: "planNumber", label: "Plan Number" },
+          { name: "category", label: "Category" },
+          { name: "status", label: "Status" },
         ]}
-        filters={[
-          { field: "planNumber", label: "Filter by Plan Number" },
-          { field: "category", label: "Filter by Category" },
-        ]}
-        rows={rows}
       />
     </Layout>
   );
@@ -155,39 +210,124 @@ export default function AMLPage() {
 
 ---
 
-4️⃣ Create SPPage.jsx
+SPPage.jsx and TrusteePage.jsx
 
-import React, { useEffect, useState } from "react";
+👉 These will be exactly the same as AMLPage.jsx but the API endpoints and fields change:
+
+SPPage.jsx: use /SP API
+Fields: spName, status
+
+TrusteePage.jsx: use /Trustee API
+Fields: name, email, phone, planNumber
+
+
+
+---
+
+✅ What You Will Get:
+
+1. Dashboard with navigation
+
+
+2. AML, SP, Trustee pages
+
+
+3. Full CRUD (Create, Read, Update, Delete) using modal popup forms.
+
+
+4. Data refreshed automatically after operations.
+
+
+
+
+---
+
+👉 Do you want me to write SPPage.jsx and TrusteePage.jsx fully also like AMLPage (with correct fields)?
+And should I also give you the CustomTable.jsx version (Material UI table + action buttons) instead of a simple table?
+
+
+
+
+
+
+
+
+Here is the full code for SPPage.jsx and TrusteePage.jsx (same CRUD structure as AMLPage but with their respective fields & endpoints):
+
+
+---
+
+SPPage.jsx
+
+import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
-import CustomTable from "../components/CustomTable";
+import ModalForm from "../components/ModalForm";
 import api from "../api";
 
 export default function SPPage() {
   const [rows, setRows] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
-  useEffect(() => {
-    const fetchSP = async () => {
-      const res = await api.get("/serviceproviders");
-      setRows(res.data);
-    };
-    fetchSP();
-  }, []);
+  const fetchData = async () => {
+    const res = await api.get("/SP");
+    setRows(res.data);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure?")) {
+      await api.delete(`/SP/${id}`);
+      fetchData();
+    }
+  };
+
+  const handleSave = async (data) => {
+    if (editRow) {
+      await api.put(`/SP/${editRow.id}`, data);
+    } else {
+      await api.post("/SP", data);
+    }
+    setModalOpen(false);
+    setEditRow(null);
+    fetchData();
+  };
+
+  useEffect(() => { fetchData(); }, []);
 
   return (
     <Layout>
       <h2>Service Providers</h2>
-      <CustomTable
-        title="Service Providers"
-        columns={[
-          { field: "spId", headerName: "SP ID" },
-          { field: "spName", headerName: "SP Name" },
-          { field: "status", headerName: "Status" },
+      <button onClick={() => setModalOpen(true)}>+ Add New</button>
+      <table border="1" width="100%" style={{ marginTop: "10px" }}>
+        <thead>
+          <tr>
+            <th>ID</th><th>SP Name</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>{row.id}</td>
+              <td>{row.spName}</td>
+              <td>{row.status}</td>
+              <td>
+                <button onClick={() => { setEditRow(row); setModalOpen(true); }}>Edit</button>
+                <button onClick={() => handleDelete(row.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <ModalForm
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditRow(null); }}
+        onSubmit={handleSave}
+        initialData={editRow}
+        fields={[
+          { name: "spName", label: "SP Name" },
+          { name: "status", label: "Status" },
         ]}
-        filters={[
-          { field: "spName", label: "Filter by SP Name" },
-          { field: "status", label: "Filter by Status" },
-        ]}
-        rows={rows}
       />
     </Layout>
   );
@@ -196,29 +336,106 @@ export default function SPPage() {
 
 ---
 
-5️⃣ Update App.js Routes
+TrusteePage.jsx
 
-import AMLPage from "./pages/AMLPage";
-import SPPage from "./pages/SPPage";
+import { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import ModalForm from "../components/ModalForm";
+import api from "../api";
 
-<Routes>
-  <Route path="/aml" element={<AMLPage />} />
-  <Route path="/sp" element={<SPPage />} />
-</Routes>
+export default function TrusteePage() {
+  const [rows, setRows] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
+
+  const fetchData = async () => {
+    const res = await api.get("/Trustee");
+    setRows(res.data);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure?")) {
+      await api.delete(`/Trustee/${id}`);
+      fetchData();
+    }
+  };
+
+  const handleSave = async (data) => {
+    if (editRow) {
+      await api.put(`/Trustee/${editRow.id}`, data);
+    } else {
+      await api.post("/Trustee", data);
+    }
+    setModalOpen(false);
+    setEditRow(null);
+    fetchData();
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  return (
+    <Layout>
+      <h2>Trustees</h2>
+      <button onClick={() => setModalOpen(true)}>+ Add New</button>
+      <table border="1" width="100%" style={{ marginTop: "10px" }}>
+        <thead>
+          <tr>
+            <th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Plan Number</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>{row.id}</td>
+              <td>{row.name}</td>
+              <td>{row.email}</td>
+              <td>{row.phone}</td>
+              <td>{row.planNumber}</td>
+              <td>
+                <button onClick={() => { setEditRow(row); setModalOpen(true); }}>Edit</button>
+                <button onClick={() => handleDelete(row.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <ModalForm
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditRow(null); }}
+        onSubmit={handleSave}
+        initialData={editRow}
+        fields={[
+          { name: "name", label: "Name" },
+          { name: "email", label: "Email" },
+          { name: "phone", label: "Phone" },
+          { name: "planNumber", label: "Plan Number" },
+        ]}
+      />
+    </Layout>
+  );
+}
 
 
 ---
 
-What This Gives You
+✅ Now you have:
 
-✅ Search/Filter for columns like Plan Number, Category, Status
-✅ Reusable Table (just change columns and filters)
-✅ Modal pop-up for row details (no need for extra page)
-✅ Clean Material UI look
+1. AMLPage.jsx – /AML
+
+
+2. SPPage.jsx – /SP
+
+
+3. TrusteePage.jsx – /Trustee
+
+
+
+All three have CRUD operations with popup modal forms.
+The Dashboard (App.js + Layout.jsx) links to these pages.
 
 
 ---
 
-👉 Do you want me to now connect this with Dashboard sidebar (so clicking "AML Trustee" or "Service Providers" opens these pages)?
-Or should I add role-based access (Admin/User) at the same time?
+👉 Do you want me to now give you the full project code structure together (App.js, Layout, ModalForm, AMLPage, SPPage, TrusteePage) as one single code set? Or do you want me to also integrate a nice dashboard UI (cards, stats)?
 
