@@ -1,90 +1,117 @@
-Thanks for sharing your full SQL structure. Let's implement server-side pagination in SQL for your three main tables:
+Thanks for sharing your existing AMLController. To add pagination in your GET endpoint using Dapper in ASP.NET Core, here’s how the logic works and how to implement it:
 
 
 ---
 
-✅ General SQL Pagination Template (SQL Server)
+✅ SQL Pagination Logic (Core Idea)
 
-SELECT *
-FROM [YourTable]
-WHERE [OptionalFilter]
-ORDER BY [SortColumn]
-OFFSET (@PageNumber - 1) * @PageSize ROWS
-FETCH NEXT @PageSize ROWS ONLY;
+In SQL Server (which you're using), pagination is implemented using OFFSET and FETCH NEXT clauses.
+The syntax is:
 
--- Also fetch total count for frontend
-SELECT COUNT(*)
-FROM [YourTable]
-WHERE [OptionalFilter];
+SELECT * FROM TableName
+ORDER BY SomeColumn
+OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
 
+Where:
 
----
+@Offset = (PageNumber - 1) * PageSize
 
-✅ 1. AML Table: Deepanshu_AML
-
--- Pagination for AML Table
-DECLARE @PageNumber INT = 1;
-DECLARE @PageSize INT = 10;
-
-SELECT *
-FROM Deepanshu_AML WITH (NOLOCK)
-ORDER BY AML_ID
-OFFSET (@PageNumber - 1) * @PageSize ROWS
-FETCH NEXT @PageSize ROWS ONLY;
-
--- Total count
-SELECT COUNT(*) FROM Deepanshu_AML WITH (NOLOCK);
-
-
----
-
-✅ 2. Trustee Table: Deepanshu_Trustee
-
--- Pagination for Trustee Table
-DECLARE @PageNumber INT = 1;
-DECLARE @PageSize INT = 10;
-
-SELECT *
-FROM Deepanshu_Trustee WITH (NOLOCK)
-ORDER BY Trustee_ID
-OFFSET (@PageNumber - 1) * @PageSize ROWS
-FETCH NEXT @PageSize ROWS ONLY;
-
--- Total count
-SELECT COUNT(*) FROM Deepanshu_Trustee WITH (NOLOCK);
-
-
----
-
-✅ 3. Service Provider Table: Deepanshu_SP
-
--- Pagination for Service Provider Table
-DECLARE @PageNumber INT = 1;
-DECLARE @PageSize INT = 10;
-
-SELECT *
-FROM Deepanshu_SP WITH (NOLOCK)
-ORDER BY SP_ID
-OFFSET (@PageNumber - 1) * @PageSize ROWS
-FETCH NEXT @PageSize ROWS ONLY;
-
--- Total count
-SELECT COUNT(*) FROM Deepanshu_SP WITH (NOLOCK);
-
-
----
-
-🛠️ Tip for Integration in Backend (Dapper/.NET)
-
-You should:
-
-Pass @PageNumber and @PageSize as parameters from your API.
-
-Wrap both queries (paged + count) in the same execution using QueryMultipleAsync.
+@PageSize = how many records per page
 
 
 
 ---
 
-Would you like me to give you the full Dapper backend + controller code for these three paginated SQL queries too?
+✅ Updated GET Method with Pagination
+
+Here’s how to modify your GetAll() method to include pagination:
+
+[HttpGet("paged")]
+public async Task<IActionResult> GetPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+{
+    using var conn = _context.CreateConnection();
+
+    // Calculate OFFSET
+    var offset = (pageNumber - 1) * pageSize;
+
+    var sql = @"
+        SELECT * FROM Deepanshu_AML WITH (NOLOCK)
+        ORDER BY AML_ID
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+        SELECT COUNT(1) FROM Deepanshu_AML;
+    ";
+
+    using var multi = await conn.QueryMultipleAsync(sql, new { Offset = offset, PageSize = pageSize });
+
+    var items = await multi.ReadAsync<AMLModel>();
+    var totalCount = await multi.ReadFirstAsync<int>();
+
+    var response = new
+    {
+        Data = items,
+        TotalRecords = totalCount,
+        PageNumber = pageNumber,
+        PageSize = pageSize,
+        TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+    };
+
+    return Ok(response);
+}
+
+
+---
+
+✅ Frontend/Consumer Can Call This Like
+
+GET /api/aml/paged?pageNumber=2&pageSize=5
+
+
+---
+
+✅ What You Need to Ensure
+
+1. ORDER BY is mandatory with OFFSET/FETCH.
+
+
+2. You return TotalCount so that frontend knows how many total pages exist.
+
+
+3. Don't forget to import:
+
+using Dapper;
+using System.Linq;
+
+
+
+
+---
+
+✅ Optional: Create a PaginationResponse<T> Class
+
+If you want to make the API more structured, create a reusable response type:
+
+public class PagedResponse<T>
+{
+    public IEnumerable<T> Data { get; set; }
+    public int TotalRecords { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages => (int)Math.Ceiling((double)TotalRecords / PageSize);
+}
+
+Then change the controller return to:
+
+var response = new PagedResponse<AMLModel>
+{
+    Data = items,
+    TotalRecords = totalCount,
+    PageNumber = pageNumber,
+    PageSize = pageSize
+};
+
+
+---
+
+Would you like me to modify your entire controller code with pagination added cleanly and fixed syntax errors as well?
 
