@@ -1,117 +1,203 @@
-Thanks for sharing your existing AMLController. To add pagination in your GET endpoint using Dapper in ASP.NET Core, here’s how the logic works and how to implement it:
+Based on everything you’ve shared — your daily progress, learning path, tech stack exposure, project work, and contributions — here’s a polished and professional summary that you can present either in a PowerPoint or as a verbal presentation.
 
 
 ---
 
-✅ SQL Pagination Logic (Core Idea)
+🎓 1-Month Internship Progress Summary
 
-In SQL Server (which you're using), pagination is implemented using OFFSET and FETCH NEXT clauses.
-The syntax is:
+From Foundation to Full-Stack Delivery
+By [Your Name]
 
-SELECT * FROM TableName
-ORDER BY SomeColumn
-OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
 
-Where:
+---
 
-@Offset = (PageNumber - 1) * PageSize
+🔹 Slide 1: Starting With Strong Foundations
 
-@PageSize = how many records per page
+Week 1 – Building Core Understanding
+
+Learned SOLID Principles to ensure clean, maintainable architecture.
+
+Studied Design Patterns like Singleton, Adapter, Factory.
+
+Practiced basic DSA and algorithm design logic to strengthen problem-solving.
+
+Understood the difference between .NET Framework vs .NET Core.
+
+Installed & configured tools: VS Code, SQL Server, Git, Bitbucket, Postman, Swagger.
+
+Practiced C#, React, and SQL via platforms like Leetcode, GTG, W3Schools, TutorialsPoint.
+
+
+🧠 Goal: Build a solid programming and system design mindset before jumping into implementation.
+
+
+---
+
+🔹 Slide 2: Learning the Tech Stack – Theory to Practice
+
+Week 2 – Getting Hands-on
+
+Studied C#, ReactJS, MS SQL, ASP.NET Core, REST APIs.
+
+Practiced SQL:
+
+Subqueries, Joins, Aggregates, Leetcode SQL.
+
+Wrote stored procedures, triggers.
+
+
+Worked on React hooks, props, state, JSX syntax, folder structure.
+
+Started with ASP.NET MVC, controllers, models, dependency injection.
+
+Practiced building CRUD APIs with Dapper and EF Core.
+
+
+🛠 Tools: GitHub, Bitbucket, Swagger, SQL Server Management Studio
+
+
+---
+
+🔹 Slide 3: Project Implementation Begins
+
+Week 3 – From Practice to Real Projects
+
+✅ Trustee Initiatives Full-Stack App
+
+Built backend APIs using .NET Core + Dapper + MS SQL
+
+Integrated frontend using React, Tailwind, MUI
+
+Implemented JWT, Identity-based authentication
+
+Features: Dashboard, CRUD operations, Pagination, Sorting, Filtering, Regex validations.
+
+
+✅ Database Work
+
+Wrote and optimized stored procedures:
+dbo.PLAN_INFO, Trustee_Plan_Onboarding, AML Screening, Vesting, Forfeiture.
+
+
+✅ Team Collaboration
+
+Joined DSUs, Sprint Planning sessions.
+
+Worked with teammates to understand task blockers.
+
+Explored .NET & React project structures on GitHub.
 
 
 
 ---
 
-✅ Updated GET Method with Pagination
+🔹 Slide 4: Technical Challenges & How I Solved Them
 
-Here’s how to modify your GetAll() method to include pagination:
+Challenge	Solution
 
-[HttpGet("paged")]
-public async Task<IActionResult> GetPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
-{
-    using var conn = _context.CreateConnection();
-
-    // Calculate OFFSET
-    var offset = (pageNumber - 1) * pageSize;
-
-    var sql = @"
-        SELECT * FROM Deepanshu_AML WITH (NOLOCK)
-        ORDER BY AML_ID
-        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
-
-        SELECT COUNT(1) FROM Deepanshu_AML;
-    ";
-
-    using var multi = await conn.QueryMultipleAsync(sql, new { Offset = offset, PageSize = pageSize });
-
-    var items = await multi.ReadAsync<AMLModel>();
-    var totalCount = await multi.ReadFirstAsync<int>();
-
-    var response = new
-    {
-        Data = items,
-        TotalRecords = totalCount,
-        PageNumber = pageNumber,
-        PageSize = pageSize,
-        TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
-    };
-
-    return Ok(response);
-}
-
-
----
-
-✅ Frontend/Consumer Can Call This Like
-
-GET /api/aml/paged?pageNumber=2&pageSize=5
-
-
----
-
-✅ What You Need to Ensure
-
-1. ORDER BY is mandatory with OFFSET/FETCH.
-
-
-2. You return TotalCount so that frontend knows how many total pages exist.
-
-
-3. Don't forget to import:
-
-using Dapper;
-using System.Linq;
-
+Swagger returning 500 error	Debugged middleware, added exception handling.
+CORS not allowing frontend access	Applied correct CORS policy setup in Startup.cs
+Complex SQL stored procedure mapping	Used Dapper.QueryMultiple, verified param types and joins
+Authentication logic confusion	Deep-dived into JWT, OAuth flow and Identity user roles
+Understanding existing codebase	Traced controller-service-repo flow, added debug breakpoints
 
 
 
 ---
 
-✅ Optional: Create a PaginationResponse<T> Class
+🔹 Slide 5: Agile Practices & Communication
 
-If you want to make the API more structured, create a reusable response type:
+🌀 Agile-Scrum Learning
 
-public class PagedResponse<T>
-{
-    public IEnumerable<T> Data { get; set; }
-    public int TotalRecords { get; set; }
-    public int PageNumber { get; set; }
-    public int PageSize { get; set; }
-    public int TotalPages => (int)Math.Ceiling((double)TotalRecords / PageSize);
-}
+Attended DSU, Sprint Planning, Backlog Grooming.
 
-Then change the controller return to:
+Observed real-time Jira task handling and priority planning.
 
-var response = new PagedResponse<AMLModel>
-{
-    Data = items,
-    TotalRecords = totalCount,
-    PageNumber = pageNumber,
-    PageSize = pageSize
-};
+Participated in team code reviews and internal discussions.
+
+
+📘 CLFY-25 Training
+
+Completed mandatory compliance & documentation sessions.
+
+
+🧑‍💻 Productivity Tools
+
+Git, Bitbucket, Confluence, SQL Server, Swagger, Postman
+
 
 
 ---
 
-Would you like me to modify your entire controller code with pagination added cleanly and fixed syntax errors as well?
+🔹 Slide 6: Final Touches & Beyond
+
+✅ Project Finalization
+
+Added:
+
+Client-side and Server-side Pagination
+
+Charts and dashboards for data visualization
+
+Email/password Regex for form validation
+
+
+Built a second app (Restaurant App) to reinforce learning.
+
+
+📈 Continued Learning
+
+Practiced reusable components
+
+Revised Design Patterns, Algorithms, and SOLID principles
+
+
+
+---
+
+🔹 Slide 7: What’s Next?
+
+🎯 Immediate Goals
+
+Improve Unit Testing skills using xUnit
+
+Build more reusable architecture using patterns like Factory/Repository
+
+Explore CI/CD, Docker, and Microservices basics
+
+Continue building full-stack projects to strengthen grip over system design.
+
+
+
+---
+
+🔹 Slide 8: Why I’m Ready for a Full-Time Role
+
+✅ Learned end-to-end full stack in 30 days
+✅ Took initiative, solved issues proactively
+✅ Understood agile workflow & production-like environment
+✅ Delivered actual working features with industry best practices
+✅ Eager to learn, quick to adapt, ready to contribute
+
+
+---
+
+🔹 Slide 9: Thank You 🙏
+
+“Thank you for the opportunity and mentorship. I'm looking forward to taking on bigger challenges and contributing to real-time applications with the team.”
+— Open to Feedback & Questions
+
+
+---
+
+Would you like me to:
+
+Convert this into a designed PowerPoint (.pptx)?
+
+Add speaker notes for each slide?
+
+Or give you a one-page executive summary for email?
+
+
+Let me know — you're ready to present this like a pro!
 
