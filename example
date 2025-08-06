@@ -1,22 +1,23 @@
 import React, { useEffect, useState } from "react";
+import api from "../api";
 import {
-  Box,
   Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+  TextField,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  TextField,
-  Typography,
-  IconButton,
+  TablePagination,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import api from "../api"; // Make sure this is correctly configured
 
-const AmlList = () => {
-  const [amlData, setAmlData] = useState([]);
+export default function AMLList() {
+  const [amlList, setAmlList] = useState([]);
   const [form, setForm] = useState({
     planNumber: "",
     status: "",
@@ -25,158 +26,503 @@ const AmlList = () => {
   });
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const fetchAML = async () => {
-    try {
-      const response = await api.get("/AML");
-      setAmlData(response.data);
-    } catch (error) {
-      console.error("Error fetching AML data:", error.message);
-    }
+    const res = await api.get("/AML");
+    setAmlList(res.data);
   };
 
   useEffect(() => {
     fetchAML();
   }, []);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleSave = async () => {
+    if (editId) {
+      await api.put(`/AML/${editId}`, form);
+    } else {
+      await api.post("/AML", form);
+    }
+    fetchAML();
+    setOpen(false);
+    setForm({ planNumber: "", status: "", complianceDate: "", comments: "" });
+    setEditId(null);
   };
 
-  const handleEdit = (row) => {
-    setEditId(row.id);
+  const handleEdit = (aml) => {
     setForm({
-      planNumber: row.plan_Number,
-      status: row.status,
-      complianceDate: row.compliance_Date,
-      comments: row.comments,
+      planNumber: aml.plan_Number || aml.Plan_Number,
+      status: aml.status || aml.Status,
+      complianceDate: aml.compliance_Date || aml.Compliance_Date,
+      comments: aml.comments || aml.Comments,
     });
+    setEditId(aml.aml_ID || aml.AML_ID);
     setOpen(true);
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this record?")) return;
-    try {
-      await api.delete(`/AML/${id}`);
-      fetchAML();
-    } catch (error) {
-      console.error("Error deleting AML:", error.message);
-    }
+    await api.delete(`/AML/${id}`);
+    fetchAML();
   };
 
-  const handleSave = async () => {
-    const payload = {
-      Plan_Number: form.planNumber,
-      Status: form.status,
-      Compliance_Date: form.complianceDate,
-      Comments: form.comments,
-    };
-
-    try {
-      if (editId) {
-        await api.put(`/AML/${editId}`, payload);
-      } else {
-        await api.post("/AML", payload);
-      }
-      fetchAML();
-      setOpen(false);
-      setForm({ planNumber: "", status: "", complianceDate: "", comments: "" });
-      setEditId(null);
-    } catch (error) {
-      console.error("Error saving AML:", error.response?.data || error.message);
-      alert("Error saving AML record. Check console for details.");
-    }
-  };
-
-  const columns = [
-    { field: "id", headerName: "ID", width: 90 },
-    { field: "plan_Number", headerName: "Plan Number", width: 150 },
-    { field: "status", headerName: "Status", width: 130 },
-    { field: "compliance_Date", headerName: "Compliance Date", width: 170 },
-    { field: "comments", headerName: "Comments", width: 200 },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 120,
-      renderCell: (params) => (
-        <>
-          <IconButton onClick={() => handleEdit(params.row)} color="primary">
-            <EditIcon />
-          </IconButton>
-          <IconButton onClick={() => handleDelete(params.row.id)} color="error">
-            <DeleteIcon />
-          </IconButton>
-        </>
-      ),
-    },
-  ];
+  const filtered = amlList.filter((a) =>
+    (a.plan_Number || a.Plan_Number || "")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        AML Records
-      </Typography>
-
-      <Button variant="contained" onClick={() => setOpen(true)} sx={{ mb: 2 }}>
+    <Container>
+      <h2>AML Records</h2>
+      <sdf-button variant="contained" onClick={() => setOpen(true)}>
         Add AML
-      </Button>
+      </sdf-button>
+      <TextField
+        label="Search by Plan Number"
+        size="small"
+        style={{ margin: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
-      <div style={{ height: 400, width: "100%" }}>
-        <DataGrid rows={amlData} columns={columns} pageSize={5} rowsPerPageOptions={[5]} />
+      <div style={{ maxHeight: "400px", overflow: "auto" }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>AML_ID</TableCell>
+              <TableCell>Plan Number</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Compliance Date</TableCell>
+              <TableCell>Comments</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.length > 0 ? (
+              filtered
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((a) => (
+                  <TableRow key={a.aml_ID || a.AML_ID}>
+                    <TableCell>{a.aml_ID || a.AML_ID}</TableCell>
+                    <TableCell>{a.plan_Number || a.Plan_Number}</TableCell>
+                    <TableCell>{a.status || a.Status}</TableCell>
+                    <TableCell>
+                      {a.compliance_Date || a.Compliance_Date}
+                    </TableCell>
+                    <TableCell>{a.comments || a.Comments}</TableCell>
+                    <TableCell>
+                      <Button onClick={() => handleEdit(a)}>Edit</Button>
+                      <Button
+                        color="error"
+                        onClick={() => handleDelete(a.aml_ID || a.AML_ID)}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  No records found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
 
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+      />
+
+      {/* Modal Form */}
       <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>{editId ? "Edit AML Record" : "Add AML Record"}</DialogTitle>
+        <DialogTitle>{editId ? "Edit AML" : "Add AML"}</DialogTitle>
         <DialogContent>
           <TextField
-            margin="dense"
+            fullWidth
             label="Plan Number"
-            name="planNumber"
+            margin="normal"
             value={form.planNumber}
-            onChange={handleChange}
-            fullWidth
-            required
+            onChange={(e) => setForm({ ...form, planNumber: e.target.value })}
           />
           <TextField
-            margin="dense"
+            fullWidth
             label="Status"
-            name="status"
+            margin="normal"
             value={form.status}
-            onChange={handleChange}
-            fullWidth
-            required
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
           />
           <TextField
-            margin="dense"
+            fullWidth
             label="Compliance Date"
-            name="complianceDate"
             type="date"
-            value={form.complianceDate}
-            onChange={handleChange}
-            fullWidth
+            margin="normal"
             InputLabelProps={{ shrink: true }}
-            required
+            value={form.complianceDate}
+            onChange={(e) =>
+              setForm({ ...form, complianceDate: e.target.value })
+            }
           />
           <TextField
-            margin="dense"
-            label="Comments"
-            name="comments"
-            value={form.comments}
-            onChange={handleChange}
             fullWidth
-            multiline
-            rows={3}
+            label="Comments"
+            margin="normal"
+            value={form.comments}
+            onChange={(e) => setForm({ ...form, comments: e.target.value })}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSave}>
-            {editId ? "Update" : "Save"}
+            Save
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
   );
-};
+}
+   // // using Dapper;
+// // using PES.WebAPI.Data;
+// // using Microsoft.AspNetCore.Authorization;
+// // using Microsoft.AspNetCore.Mvc;
 
-export default AmlList;
+// // namespace PES.WebAPI.Controllers
+// // {
+// //     [ApiController]
+// //     [Route("api/[controller]")]
+// //    //[Authorize(Roles = "Admin")]  // Role-based auth can be added later
+// //     public class AMLController : ControllerBase
+// //     {
+// //         private readonly DapperContext _context;
+// //         public AMLController(DapperContext context)
+// //         {
+// //             _context = context;
+// //         }
+
+// //         // GET All
+// //         [AllowAnonymous]
+// //         [HttpGet]
+// //         public async Task<IActionResult> GetAll()
+// //         {
+// //             var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK)";
+// //             using var conn = _context.CreateConnection();
+// //             var data = await conn.QueryAsync(sql);
+// //             return Ok(data);
+// //         }
+
+// //         // GET by ID
+// //         [HttpGet("{id}")]
+// //         public async Task<IActionResult> GetById(int id)
+// //         {
+// //             var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK) WHERE AML_ID = @id";
+// //             using var conn = _context.CreateConnection();
+// //             var data = await conn.QuerySingleOrDefaultAsync(sql, new { id });
+// //             if (data == null) return NotFound();
+// //             return Ok(data);
+// //         }
+
+// //         // POST
+// //         [HttpPost]
+// //         public async Task<IActionResult> Create([FromBody] dynamic model)
+// //         {
+// //             var sql = @"INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
+// //                     VALUES (@Plan_Number, @Status, @Compliance_Date, @Comments)";
+// //             using var conn = _context.CreateConnection();
+          
+// //             var rows = await conn.ExecuteAsync(sql,(object) model);
+
+// //             return rows > 0 ? Ok("Inserted") : BadRequest();
+// //         }
+
+// //         // PUT
+// //         [HttpPut("{id}")]
+// //         public async Task<IActionResult> Update(int id, [FromBody] dynamic model)
+// //         {
+// //             var sql = @"UPDATE Deepanshu_AML SET Plan_Number=@Plan_Number, Status=@Status, 
+// //                     Compliance_Date=@Compliance_Date, Comments=@Comments WHERE AML_ID=@id";
+// //             using var conn = _context.CreateConnection();
+// //             var rows = await conn.ExecuteAsync(sql, new
+// //             {
+// //                 model.Plan_Number,
+// //                 model.Status,
+// //                 model.Compliance_Date,
+// //                 model.Comments,
+// //                 id
+// //             });
+// //             return rows > 0 ? Ok("Updated") : NotFound();
+// //         }
+
+// //         // DELETE
+// //         [HttpDelete("{id}")]
+// //         public async Task<IActionResult> Delete(int id)
+// //         {
+// //             var sql = "DELETE FROM Deepanshu_AML WHERE AML_ID=@id";
+// //             using var conn = _context.CreateConnection();
+// //             var rows = await conn.ExecuteAsync(sql, new { id });
+// //             return rows > 0 ? Ok("Deleted") : NotFound();
+// //         }
+// //     }
+
+// // }
+// using Dapper;
+// using Microsoft.AspNetCore.Mvc;
+// using PES.WebAPI.Data;
+// using PES.WebAPI.Models;
+
+// [ApiController]
+// [Route("api/[controller]")]
+// public class AMLController : ControllerBase
+// {
+//     private readonly DapperContext _context;
+
+//     public AMLController(DapperContext context)
+//     {
+//         _context = context;
+//     }
+
+//     [HttpPost]
+//     public async Task<IActionResult> Create([FromBody] AMLModel model)
+//     {
+//         var sql = @"INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
+//                     VALUES (@Plan_Number, @Status, @Compliance_Date, @Comments)";
+
+//         using var conn = _context.CreateConnection();
+//         await conn.ExecuteAsync(sql, model);
+
+//         return Ok("AML record inserted successfully");
+//     }
+
+//     [HttpGet]
+//     public async Task<IActionResult> GetAll()
+//     {
+//         var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK)";
+//         using var conn = _context.CreateConnection();
+//         var data = await conn.QueryAsync(sql);
+//         return Ok(data);
+//     }
+// }
+using Microsoft.AspNetCore.Mvc;
+using Dapper;
+using PES.WebAPI.Data;
+using PES.WebAPI.Models;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AMLController : ControllerBase
+{
+    private readonly DapperContext _context;
+
+    public AMLController(DapperContext context)
+    {
+        _context = context;
+    }
+
+    // ➡ CREATE (POST)
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] AMLModel model)
+    {
+        using var conn = _context.CreateConnection();
+        var sql = @"INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
+                    VALUES (@Plan_Number, @Status, @Compliance_Date, @Comments)";
+        await conn.ExecuteAsync(sql, model);
+        return Ok("AML record inserted successfully");
+    }
+
+    // ➡ READ (GET All)
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        using var conn = _context.CreateConnection();
+        var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK)";
+        var data = await conn.QueryAsync(sql);
+        return Ok(data);
+    }
+
+    // ➡ READ (GET by ID)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        using var conn = _context.CreateConnection();
+        var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK) WHERE AML_ID = @AML_ID";
+        var aml = await conn.QueryFirstOrDefaultAsync(sql, new { AML_ID = id });
+
+        if (aml == null)
+            return NotFound($"AML record with ID {id} not found.");
+
+        return Ok(aml);
+    }
+
+    // ➡ UPDATE (PUT)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] AMLModel model)
+    {
+        using var conn = _context.CreateConnection();
+
+        var exists = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM Deepanshu_AML WHERE AML_ID = @AML_ID", new { AML_ID = id });
+
+        if (exists == 0)
+            return NotFound($"AML record with ID {id} not found.");
+
+        var sql = @"UPDATE Deepanshu_AML 
+                    SET Plan_Number = @Plan_Number, Status = @Status, Compliance_Date = @Compliance_Date, Comments = @Comments
+                    WHERE AML_ID = @AML_ID";
+
+        await conn.ExecuteAsync(sql, new
+        {
+            model.Plan_Number,
+            model.Status,
+            model.Compliance_Date,
+            model.Comments,
+            AML_ID = id
+        });
+
+        return Ok($"AML record with ID {id} updated successfully");
+    }
+
+    // ➡ DELETE
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        using var conn = _context.CreateConnection();
+        var sql = "DELETE FROM Deepanshu_AML WHERE AML_ID = @AML_ID";
+        var rows = await conn.ExecuteAsync(sql, new { AML_ID = id });
+
+        if (rows == 0)
+            return NotFound($"AML record with ID {id} not found.");
+
+        return Ok($"AML record with ID {id} deleted successfully");
+    }
+}
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using PES.WebAPI.Data;
+
+
+
+var builder = WebApplication.CreateBuilder(args);
+
+// 1. Add DbContext for Identity
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
+
+// 2. Add Identity
+builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+// 3. Add JWT Authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+    };
+});
+
+
+// Services
+builder.Services.AddAuthorization();
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSingleton<DapperContext>();
+
+builder.Services.AddCors(options => options.AddPolicy("AllowReactApp", p => p.WithOrigins("http://localhost:3000").
+AllowAnyMethod().AllowAnyHeader()));
+builder.Services.AddSwaggerGen();
+builder.Services.AddControllers();
+
+var app = builder.Build();
+
+// using (var scope = app.Services.CreateScope())
+// {
+//     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+//     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+
+//     if (!await roleManager.RoleExistsAsync("Admin"))
+//         await roleManager.CreateAsync(new IdentityRole("Admin"));
+//     if (!await roleManager.RoleExistsAsync("User"))
+//         await roleManager.CreateAsync(new IdentityRole("User"));
+
+//     // Create admin user if not exists
+//     var adminUser = await userManager.FindByNameAsync("admin");
+//     if (adminUser == null)
+//     {
+//         adminUser = new IdentityUser { UserName = "admin", Email = "admin@example.com" };
+//         await userManager.CreateAsync(adminUser, "Admin@123");
+//         await userManager.AddToRoleAsync(adminUser, "Admin");
+//     }
+// }
+
+app.UseCors("AllowReactApp");
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseDeveloperExceptionPage();
+app.MapControllers();
+app.Run();
+
+
+import React from "react";
+import { Routes, Route, Link } from "react-router-dom";
+import Login from "./components/Login";
+import AMLList from "./components/AMLList";
+import TrusteeList from "./components/TrusteeList";
+import SPList from "./components/SPList";
+import Register from "./components/Register";
+
+export default function App() {
+  return (
+    <div>
+      <nav style={{ padding: "10px", background: "#f5f5f5" }}>
+        <Link to="/aml" style={{ marginRight: "15px" }}>AML</Link>
+        <Link to="/trustee" style={{ marginRight: "15px" }}>Trustee</Link>
+        <Link to="/sp" style={{ marginRight: "15px" }}>Service Providers</Link>
+        <Link to="/register" style={{ marginRight: "15px" }}>Register</Link>
+      </nav>
+
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/aml" element={<AMLList />} />
+        <Route path="/trustee" element={<TrusteeList />} />
+        <Route path="/sp" element={<SPList />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </div>
+  );
+}namespace PES.WebAPI.Models
+{
+    public class AMLModel
+    {
+        public string Plan_Number { get; set; }="";
+        public string Status { get; set; } = "";
+        public DateTime? Compliance_Date { get; set; }
+        public string? Comments { get; set; }
+    }
+}
