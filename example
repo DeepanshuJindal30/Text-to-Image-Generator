@@ -1,181 +1,70 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-  Typography,
   Table,
   TableHead,
   TableBody,
   TableRow,
   TableCell,
+  Typography,
+  Container,
   Paper,
-} from "@mui/material";
-
-const API_BASE_URL = "http://localhost:5041/api/AML"; // Adjust if route differs
+} from '@mui/material';
 
 const AMLList = () => {
-  const [amlList, setAmlList] = useState([]);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    plan_Number: "",
-    status: "",
-    compliance_Date: "",
-    comments: "",
-  });
-  const [editingId, setEditingId] = useState(null);
-
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(API_BASE_URL);
-      setAmlList(response.data);
-    } catch (err) {
-      console.error("Error fetching AML data:", err);
-    }
-  };
+  const [amlData, setAmlData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
+    axios.get('http://localhost:5041/api/AML')
+      .then((response) => {
+        setAmlData(response.data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error fetching AML data:', error);
+        setLoading(false);
+      });
   }, []);
 
-  const handleOpen = (item = null) => {
-    if (item) {
-      setForm(item);
-      setEditingId(item.plan_Number);
-    } else {
-      setForm({
-        plan_Number: "",
-        status: "",
-        compliance_Date: "",
-        comments: "",
-      });
-      setEditingId(null);
-    }
-    setOpen(true);
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-    setForm({
-      plan_Number: "",
-      status: "",
-      compliance_Date: "",
-      comments: "",
-    });
-    setEditingId(null);
-  };
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async () => {
-    try {
-      if (editingId) {
-        await axios.put(`${API_BASE_URL}/${editingId}`, form);
-      } else {
-        await axios.post(API_BASE_URL, form);
-      }
-      fetchData();
-      handleClose();
-    } catch (err) {
-      console.error("Error submitting AML form:", err);
-    }
-  };
-
   return (
-    <Box sx={{ p: 4 }}>
+    <Container>
       <Typography variant="h4" gutterBottom>
         AML List
       </Typography>
-
-      <Button variant="contained" color="primary" onClick={() => handleOpen()}>
-        Add AML Entry
-      </Button>
-
-      <Paper sx={{ mt: 3 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell><strong>Plan Number</strong></TableCell>
-              <TableCell><strong>Status</strong></TableCell>
-              <TableCell><strong>Compliance Date</strong></TableCell>
-              <TableCell><strong>Comments</strong></TableCell>
-              <TableCell><strong>Actions</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {amlList.map((aml) => (
-              <TableRow key={aml.plan_Number}>
-                <TableCell>{aml.plan_Number}</TableCell>
-                <TableCell>{aml.status}</TableCell>
-                <TableCell>{aml.compliance_Date?.split("T")[0]}</TableCell>
-                <TableCell>{aml.comments}</TableCell>
-                <TableCell>
-                  <Button onClick={() => handleOpen(aml)} variant="outlined">
-                    Edit
-                  </Button>
-                </TableCell>
+      <Paper elevation={3}>
+        {loading ? (
+          <Typography>Loading...</Typography>
+        ) : amlData.length === 0 ? (
+          <Typography>No AML data found.</Typography>
+        ) : (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell><strong>Plan Number</strong></TableCell>
+                <TableCell><strong>Status</strong></TableCell>
+                <TableCell><strong>Compliance Date</strong></TableCell>
+                <TableCell><strong>Comments</strong></TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {amlData.map((item, index) => (
+                <TableRow key={index}>
+                  <TableCell>{item.plan_Number || 'N/A'}</TableCell>
+                  <TableCell>{item.status || 'N/A'}</TableCell>
+                  <TableCell>
+                    {item.compliance_Date
+                      ? new Date(item.compliance_Date).toLocaleDateString()
+                      : 'N/A'}
+                  </TableCell>
+                  <TableCell>{item.comments || 'N/A'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Paper>
-
-      <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>{editingId ? "Edit AML" : "Add AML"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            margin="dense"
-            name="plan_Number"
-            label="Plan Number"
-            fullWidth
-            value={form.plan_Number}
-            onChange={handleChange}
-            disabled={!!editingId} // Disable on edit
-          />
-          <TextField
-            margin="dense"
-            name="status"
-            label="Status"
-            fullWidth
-            value={form.status}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            name="compliance_Date"
-            label="Compliance Date"
-            type="date"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            value={form.compliance_Date?.split("T")[0] || ""}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            name="comments"
-            label="Comments"
-            fullWidth
-            multiline
-            rows={2}
-            value={form.comments}
-            onChange={handleChange}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
-            {editingId ? "Update" : "Add"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+    </Container>
   );
 };
 
