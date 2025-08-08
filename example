@@ -1,24 +1,176 @@
-const handleSave = async () => {
-  try {
-    const payload = {
-      id: aml.id, // required for edit
-      planNumber: aml.planNumber,
-      status: aml.status,
-      complianceDate: new Date(aml.complianceDate).toISOString(), // format fix
-      comments: aml.comments
-    };
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Button,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle
+} from '@mui/material';
 
-    if (isEditMode) {
-      await axios.put(`http://localhost:5041/api/AML/${aml.id}`, payload);
-    } else {
-      await axios.post("http://localhost:5041/api/AML", payload);
+const AMLList = () => {
+  const [amls, setAmls] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [aml, setAml] = useState({
+    id: 0,
+    planNumber: '',
+    status: '',
+    complianceDate: '',
+    comments: ''
+  });
+
+  const API_BASE_URL = 'https://localhost:5041/api/AML';
+
+  const fetchAmls = async () => {
+    try {
+      const result = await axios.get(API_BASE_URL);
+      setAmls(result.data);
+    } catch (error) {
+      console.error('Error fetching AMLs:', error);
     }
+  };
 
-    alert('AML saved successfully!');
-    fetchData(); // refresh table
-    setIsDialogOpen(false); // close modal
-  } catch (error) {
-    console.error('Save failed:', error);
-    alert('Error saving AML: ' + (error.response?.data || error.message));
-  }
+  useEffect(() => {
+    fetchAmls();
+  }, []);
+
+  const handleClickOpen = () => {
+    setEditing(false);
+    setAml({
+      id: 0,
+      planNumber: '',
+      status: '',
+      complianceDate: '',
+      comments: ''
+    });
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  const handleSave = async () => {
+    try {
+      if (editing) {
+        await axios.put(`${API_BASE_URL}/${aml.id}`, aml);
+      } else {
+        await axios.post(API_BASE_URL, aml);
+      }
+      fetchAmls();
+      setOpen(false);
+    } catch (error) {
+      console.error('Error saving AML:', error);
+    }
+  };
+
+  const handleEdit = (amlToEdit) => {
+    setEditing(true);
+    setAml(amlToEdit);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/${id}`);
+      fetchAmls();
+    } catch (error) {
+      console.error('Error deleting AML:', error);
+    }
+  };
+
+  return (
+    <div>
+      <h2>AML List</h2>
+      <Button variant="contained" color="primary" onClick={handleClickOpen}>
+        Add AML
+      </Button>
+      <TableContainer component={Paper} sx={{ mt: 2 }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>ID</TableCell>
+              <TableCell>Plan Number</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Compliance Date</TableCell>
+              <TableCell>Comments</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {amls.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>{item.id}</TableCell>
+                <TableCell>{item.planNumber}</TableCell>
+                <TableCell>{item.status}</TableCell>
+                <TableCell>{item.complianceDate?.split('T')[0]}</TableCell>
+                <TableCell>{item.comments}</TableCell>
+                <TableCell>
+                  <Button color="primary" onClick={() => handleEdit(item)}>
+                    Edit
+                  </Button>
+                  <Button color="error" onClick={() => handleDelete(item.id)}>
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Dialog open={open} onClose={handleClose}>
+        <DialogTitle>{editing ? 'Edit AML' : 'Add AML'}</DialogTitle>
+        <DialogContent>
+          <TextField
+            margin="dense"
+            label="Plan Number"
+            fullWidth
+            value={aml.planNumber}
+            onChange={(e) => setAml({ ...aml, planNumber: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            label="Status"
+            fullWidth
+            value={aml.status}
+            onChange={(e) => setAml({ ...aml, status: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            label="Compliance Date"
+            type="date"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            value={aml.complianceDate}
+            onChange={(e) => setAml({ ...aml, complianceDate: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            label="Comments"
+            fullWidth
+            value={aml.comments}
+            onChange={(e) => setAml({ ...aml, comments: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleSave} variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </div>
+  );
 };
+
+export default AMLList;
