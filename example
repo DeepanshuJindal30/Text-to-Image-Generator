@@ -1,165 +1,187 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
+  DataGrid
+} from '@mui/x-data-grid';
+import {
+  Box,
   Button,
-  TextField,
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle
+  DialogTitle,
+  MenuItem,
+  Select,
+  TextField,
+  Typography
 } from '@mui/material';
 
 const AMLList = () => {
-  const [amls, setAmls] = useState([]);
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [aml, setAml] = useState({
-    id: 0,
-    planNumber: '',
+  const [amlList, setAmlList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedAml, setSelectedAml] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const emptyAml = {
+    plan_Number: '',
     status: '',
-    complianceDate: '',
+    compliance_Date: '',
     comments: ''
-  });
+  };
 
-  const API_BASE_URL = 'https://localhost:5041/api/AML';
-
-  const fetchAmls = async () => {
+  const fetchAML = async () => {
     try {
-      const result = await axios.get(API_BASE_URL);
-      setAmls(result.data);
+      const response = await axios.get('http://localhost:5041/api/AML/');
+      setAmlList(response.data);
     } catch (error) {
-      console.error('Error fetching AMLs:', error);
+      console.error('Error fetching AML data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAmls();
+    fetchAML();
   }, []);
 
-  const handleClickOpen = () => {
-    setEditing(false);
-    setAml({
-      id: 0,
-      planNumber: '',
-      status: '',
-      complianceDate: '',
-      comments: ''
-    });
-    setOpen(true);
+  const handleOpen = (aml = emptyAml) => {
+    setSelectedAml(aml);
+    setIsEditing(!!aml.id);
+    setOpenDialog(true);
   };
 
   const handleClose = () => {
-    setOpen(false);
+    setSelectedAml(null);
+    setOpenDialog(false);
   };
 
   const handleSave = async () => {
     try {
-      if (editing) {
-        await axios.put(`${API_BASE_URL}/${aml.id}`, aml);
+      if (isEditing) {
+        await axios.put(`http://localhost:5041/api/AML/${selectedAml.id}`, selectedAml);
       } else {
-        await axios.post(API_BASE_URL, aml);
+        await axios.post('http://localhost:5041/api/AML/', selectedAml);
       }
-      fetchAmls();
-      setOpen(false);
+      fetchAML();
+      handleClose();
     } catch (error) {
       console.error('Error saving AML:', error);
+      alert('Error saving AML: ' + error.message);
     }
-  };
-
-  const handleEdit = (amlToEdit) => {
-    setEditing(true);
-    setAml(amlToEdit);
-    setOpen(true);
   };
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${API_BASE_URL}/${id}`);
-      fetchAmls();
+      await axios.delete(`http://localhost:5041/api/AML/${id}`);
+      fetchAML();
     } catch (error) {
       console.error('Error deleting AML:', error);
     }
   };
 
-  return (
-    <div>
-      <h2>AML List</h2>
-      <Button variant="contained" color="primary" onClick={handleClickOpen}>
-        Add AML
-      </Button>
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Plan Number</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Compliance Date</TableCell>
-              <TableCell>Comments</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {amls.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{item.id}</TableCell>
-                <TableCell>{item.planNumber}</TableCell>
-                <TableCell>{item.status}</TableCell>
-                <TableCell>{item.complianceDate?.split('T')[0]}</TableCell>
-                <TableCell>{item.comments}</TableCell>
-                <TableCell>
-                  <Button color="primary" onClick={() => handleEdit(item)}>
-                    Edit
-                  </Button>
-                  <Button color="error" onClick={() => handleDelete(item.id)}>
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+  const columns = [
+    { field: 'id', headerName: 'ID', width: 80 },
+    { field: 'plan_Number', headerName: 'Plan Number', width: 150 },
+    { field: 'status', headerName: 'Status', width: 120 },
+    { field: 'compliance_Date', headerName: 'Compliance Date', width: 160 },
+    { field: 'comments', headerName: 'Comments', width: 200 },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 200,
+      renderCell: (params) => (
+        <>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleOpen(params.row)}
+            sx={{ mr: 1 }}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            color="error"
+            onClick={() => handleDelete(params.row.id)}
+          >
+            Delete
+          </Button>
+        </>
+      )
+    }
+  ];
 
-      <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>{editing ? 'Edit AML' : 'Add AML'}</DialogTitle>
-        <DialogContent>
+  const filteredRows = amlList.filter(
+    (row) =>
+      row.plan_Number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (row.comments && row.comments.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <Box sx={{ height: 600, width: '100%', p: 2 }}>
+      <Typography variant="h5" gutterBottom>
+        AML List
+      </Typography>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+        <TextField
+          label="Search"
+          variant="outlined"
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Button variant="contained" onClick={() => handleOpen()}>
+          Add AML
+        </Button>
+      </Box>
+
+      <DataGrid
+        rows={filteredRows}
+        columns={columns}
+        pageSize={5}
+        loading={loading}
+        autoHeight
+        disableRowSelectionOnClick
+      />
+
+      <Dialog open={openDialog} onClose={handleClose}>
+        <DialogTitle>{isEditing ? 'Edit AML' : 'Add AML'}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <TextField
-            margin="dense"
             label="Plan Number"
+            value={selectedAml?.plan_Number || ''}
+            onChange={(e) => setSelectedAml({ ...selectedAml, plan_Number: e.target.value })}
             fullWidth
-            value={aml.planNumber}
-            onChange={(e) => setAml({ ...aml, planNumber: e.target.value })}
           />
-          <TextField
-            margin="dense"
-            label="Status"
+          <Select
+            value={selectedAml?.status || ''}
+            onChange={(e) => setSelectedAml({ ...selectedAml, status: e.target.value })}
             fullWidth
-            value={aml.status}
-            onChange={(e) => setAml({ ...aml, status: e.target.value })}
-          />
+            displayEmpty
+          >
+            <MenuItem value="">Select Status</MenuItem>
+            <MenuItem value="Active">Active</MenuItem>
+            <MenuItem value="Inactive">Inactive</MenuItem>
+          </Select>
           <TextField
-            margin="dense"
             label="Compliance Date"
             type="date"
+            value={selectedAml?.compliance_Date?.substring(0, 10) || ''}
+            onChange={(e) => setSelectedAml({ ...selectedAml, compliance_Date: e.target.value })}
             fullWidth
             InputLabelProps={{ shrink: true }}
-            value={aml.complianceDate}
-            onChange={(e) => setAml({ ...aml, complianceDate: e.target.value })}
           />
           <TextField
-            margin="dense"
             label="Comments"
+            value={selectedAml?.comments || ''}
+            onChange={(e) => setSelectedAml({ ...selectedAml, comments: e.target.value })}
             fullWidth
-            value={aml.comments}
-            onChange={(e) => setAml({ ...aml, comments: e.target.value })}
+            multiline
           />
         </DialogContent>
         <DialogActions>
@@ -169,7 +191,7 @@ const AMLList = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </div>
+    </Box>
   );
 };
 
