@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route, Link, useNavigate } from "react-router-dom";
 import Login from "./components/Login";
 import AMLList from "./components/AMLList";
@@ -8,38 +8,52 @@ import Auth from "./components/Auth";
 import Register from "./components/Register";
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [role, setRole] = useState(""); // 'admin' or 'user'
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user")); // user object with role info
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userRole = localStorage.getItem("role");
+    if (token) {
+      setIsLoggedIn(true);
+      setRole(userRole);
+    }
+  }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/"); // redirect to login
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    setIsLoggedIn(false);
+    setRole("");
+    navigate("/");
   };
 
   return (
     <div>
       <nav style={{ padding: "10px", background: "#f5f5f5" }}>
-        {user?.role === "admin" || user?.role === "aml" ? (
-          <Link to="/aml" style={{ marginRight: "15px" }}>AML</Link>
-        ) : null}
+        {isLoggedIn && (
+          <>
+            <Link to="/aml" style={{ marginRight: "15px" }}>AML</Link>
+            {role === "admin" && (
+              <>
+                <Link to="/trustee" style={{ marginRight: "15px" }}>Trustee</Link>
+                <Link to="/sp" style={{ marginRight: "15px" }}>Service Providers</Link>
+              </>
+            )}
+            <button onClick={handleLogout} style={{ marginLeft: "15px" }}>Logout</button>
+          </>
+        )}
 
-        {user?.role === "admin" || user?.role === "manager" ? (
-          <Link to="/trustee" style={{ marginRight: "15px" }}>Trustee</Link>
-        ) : null}
-
-        {user?.role === "admin" || user?.role === "sp" ? (
-          <Link to="/sp" style={{ marginRight: "15px" }}>Service Providers</Link>
-        ) : null}
-
-        {!user ? (
-          <Link to="/register" style={{ marginRight: "15px" }}>Register</Link>
-        ) : (
-          <button onClick={handleLogout} style={{ marginLeft: "15px" }}>Logout</button>
+        {!isLoggedIn && (
+          <>
+            <Link to="/register" style={{ marginRight: "15px" }}>Register</Link>
+          </>
         )}
       </nav>
 
       <Routes>
-        <Route path="/" element={<Auth />} />
+        <Route path="/" element={<Auth setIsLoggedIn={setIsLoggedIn} setRole={setRole} />} />
         <Route path="/aml" element={<AMLList />} />
         <Route path="/trustee" element={<TrusteeList />} />
         <Route path="/sp" element={<SPList />} />
