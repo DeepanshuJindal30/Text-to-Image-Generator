@@ -1,18 +1,602 @@
-const handleSave = async () => {
-  const payload = {
-    Name: form.name,
-    Service_Type: form.serviceType,
-    Trustee_ID: parseInt(form.trusteeId)
+using Microsoft.AspNetCore.Mvc;
+using Dapper;
+using PES.WebAPI.Data;
+using PES.WebAPI.Models;
+
+[ApiController]
+[Route("api/[controller]")]
+public class TrusteeController : ControllerBase
+{
+    private readonly DapperContext _context;
+
+    public TrusteeController(DapperContext context)
+    {
+        _context = context;
+    }
+
+    // ➡ CREATE (POST)
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] TrusteeModel model)
+    {
+        using var conn = _context.CreateConnection();
+        var sql = @"INSERT INTO Deepanshu_Trustee (Name, Email, Phone, Plan_Number)
+                    VALUES (@Name, @Email, @Phone, @Plan_Number)";
+        await conn.ExecuteAsync(sql, model);
+        return Ok("Trustee record inserted successfully");
+    }
+
+    // ➡ READ (GET All)
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        using var conn = _context.CreateConnection();
+        var sql = "SELECT * FROM Deepanshu_Trustee WITH (NOLOCK)";
+        var data = await conn.QueryAsync(sql);
+        return Ok(data);
+    }
+
+    // ➡ READ (GET by ID)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        using var conn = _context.CreateConnection();
+        var sql = "SELECT * FROM Deepanshu_Trustee WITH (NOLOCK) WHERE Trustee_ID = @Trustee_ID";
+        var trustee = await conn.QueryFirstOrDefaultAsync(sql, new { Trustee_ID = id });
+
+        if (trustee == null)
+            return NotFound($"Trustee with ID {id} not found.");
+
+        return Ok(trustee);
+    }
+
+    // ➡ UPDATE (PUT)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] TrusteeModel model)
+    {
+        using var conn = _context.CreateConnection();
+
+        var exists = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM Deepanshu_Trustee WHERE Trustee_ID = @Trustee_ID", new { Trustee_ID = id });
+
+        if (exists == 0)
+            return NotFound($"Trustee with ID {id} not found.");
+
+        var sql = @"UPDATE Deepanshu_Trustee 
+                    SET Name = @Name, Email = @Email, Phone = @Phone, Plan_Number = @Plan_Number
+                    WHERE Trustee_ID = @Trustee_ID";
+
+        await conn.ExecuteAsync(sql, new
+        {
+            model.Name,
+            model.Email,
+            model.Phone,
+            model.Plan_Number,
+            Trustee_ID = id
+        });
+
+        return Ok($"Trustee with ID {id} updated successfully");
+    }
+
+    // ➡ DELETE
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        using var conn = _context.CreateConnection();
+
+        // Delete SP records linked to this Trustee first (FK constraint)
+        await conn.ExecuteAsync("DELETE FROM Deepanshu_SP WHERE Trustee_ID = @Trustee_ID", new { Trustee_ID = id });
+
+        var sql = "DELETE FROM Deepanshu_Trustee WHERE Trustee_ID = @Trustee_ID";
+        var rows = await conn.ExecuteAsync(sql, new { Trustee_ID = id });
+
+        if (rows == 0)
+            return NotFound($"Trustee with ID {id} not found.");
+
+        return Ok($"Trustee with ID {id} deleted successfully");
+    }
+}
+namespace PES.WebAPI.Models
+{
+    public class AMLModel
+    {
+        public string Plan_Number { get; set; }="";
+        public string Status { get; set; } = "";
+        public DateTime? Compliance_Date { get; set; }
+        public string Comments { get; set; } = "";
+    }
+}
+namespace PES.WebAPI.Models
+{
+    public class TrusteeModel
+    {
+        public string Name { get; set; }="";
+        public string Email { get; set; }= "";
+        public string? Phone { get; set; }
+        public string Plan_Number { get; set; }= "";
+    }
+}
+using Microsoft.AspNetCore.Mvc;
+using Dapper;
+using PES.WebAPI.Data;
+using PES.WebAPI.Models;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AMLController : ControllerBase
+{
+    private readonly DapperContext _context;
+
+    public AMLController(DapperContext context)
+    {
+        _context = context;
+    }
+
+    // ➡ CREATE (POST)
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] AMLModel model)
+    {
+        using var conn = _context.CreateConnection();
+        var sql = @"INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
+                    VALUES (@Plan_Number, @Status, @Compliance_Date, @Comments)";
+        await conn.ExecuteAsync(sql, model);
+        return Ok("AML record inserted successfully");
+    }
+
+    // ➡ READ (GET All)
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        using var conn = _context.CreateConnection();
+        var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK)";
+        var data = await conn.QueryAsync(sql);
+        return Ok(data);
+    }
+
+    // ➡ READ (GET by ID)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        using var conn = _context.CreateConnection();
+        var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK) WHERE AML_ID = @AML_ID";
+        var aml = await conn.QueryFirstOrDefaultAsync(sql, new { AML_ID = id });
+
+        if (aml == null)
+            return NotFound($"AML record with ID {id} not found.");
+
+        return Ok(aml);
+    }
+
+    // ➡ UPDATE (PUT)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] AMLModel model)
+    {
+        using var conn = _context.CreateConnection();
+
+        var exists = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM Deepanshu_AML WHERE AML_ID = @AML_ID", new { AML_ID = id });
+
+        if (exists == 0)
+            return NotFound($"AML record with ID {id} not found.");
+
+        var sql = @"UPDATE Deepanshu_AML 
+                    SET Plan_Number = @Plan_Number, Status = @Status, Compliance_Date = @Compliance_Date, Comments = @Comments
+                    WHERE AML_ID = @AML_ID";
+
+        await conn.ExecuteAsync(sql, new
+        {
+            model.Plan_Number,
+            model.Status,
+            model.Compliance_Date,
+            model.Comments,
+            AML_ID = id
+        });
+
+        return Ok($"AML record with ID {id} updated successfully");
+    }
+
+    // ➡ DELETE
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        using var conn = _context.CreateConnection();
+        var sql = "DELETE FROM Deepanshu_AML WHERE AML_ID = @AML_ID";
+        var rows = await conn.ExecuteAsync(sql, new { AML_ID = id });
+
+        if (rows == 0)
+            return NotFound($"AML record with ID {id} not found.");
+
+        return Ok($"AML record with ID {id} deleted successfully");
+    }
+}
+import React, { useEffect, useState } from "react";
+import api from "../api";
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TablePagination,
+} from "@mui/material";
+
+export default function TrusteeList() {
+  const [trustees, setTrustees] = useState([]);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    planNumber: "",
+  });
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const fetchTrustees = async () => {
+    const res = await api.get("/Trustee");
+    setTrustees(res.data);
   };
 
-  if (editId) {
-    await api.put(`/sp/${editId}`, payload);
-  } else {
-    await api.post("/sp", payload);
-  }
+  useEffect(() => {
+    fetchTrustees();
+  }, []);
 
-  fetchSP();
-  setOpen(false);
-  setForm({ name: "", serviceType: "", trusteeId: "" });
-  setEditId(null);
-};
+  const handleSave = async () => {
+    if (editId) {
+      await api.put(`/Trustee/${editId}`, form);
+    } else {
+      await api.post("/Trustee", form);
+    }
+    fetchTrustees();
+    setOpen(false);
+    setForm({ name: "", email: "", phone: "", planNumber: "" });
+    setEditId(null);
+  };
+
+  const handleEdit = (t) => {
+    setForm({
+      name: t.name || t.Name,
+      email: t.email || t.Email,
+      phone: t.phone || t.Phone,
+      planNumber: t.plan_Number || t.Plan_Number,
+    });
+    setEditId(t.trustee_ID || t.Trustee_ID);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/Trustee/${id}`);
+    fetchTrustees();
+  };
+
+  const filtered = trustees.filter((t) =>
+    (t.name || t.Name || "")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  return (
+    <Container>
+      <h2>Trustee Records</h2>
+      <Button variant="contained" onClick={() => setOpen(true)}>
+        Add Trustee
+      </Button>
+      <TextField
+        label="Search by Name"
+        size="small"
+        style={{ margin: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      <div style={{ maxHeight: "400px", overflow: "auto" }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>Trustee_ID</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Phone</TableCell>
+              <TableCell>Plan Number</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.length > 0 ? (
+              filtered
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((t) => (
+                  <TableRow key={t.trustee_ID || t.Trustee_ID}>
+                    <TableCell>{t.trustee_ID || t.Trustee_ID}</TableCell>
+                    <TableCell>{t.name || t.Name}</TableCell>
+                    <TableCell>{t.email || t.Email}</TableCell>
+                    <TableCell>{t.phone || t.Phone}</TableCell>
+                    <TableCell>{t.plan_Number || t.Plan_Number}</TableCell>
+                    <TableCell>
+                      <Button onClick={() => handleEdit(t)}>Edit</Button>
+                      <Button
+                        color="error"
+                        onClick={() =>
+                          handleDelete(t.trustee_ID || t.Trustee_ID)
+                        }
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  No records found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+      />
+
+      {/* Modal Form */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{editId ? "Edit Trustee" : "Add Trustee"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Name"
+            margin="normal"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Email"
+            margin="normal"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Phone"
+            margin="normal"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Plan Number"
+            margin="normal"
+            value={form.planNumber}
+            onChange={(e) =>
+              setForm({ ...form, planNumber: e.target.value })
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}
+import React, { useEffect, useState } from "react";
+import api from "../api";
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TablePagination,
+} from "@mui/material";
+
+export default function AMLList() {
+  const [amlList, setAmlList] = useState([]);
+  const [form, setForm] = useState({
+    planNumber: "",
+    status: "",
+    complianceDate: "",
+    comments: "",
+  });
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const fetchAML = async () => {
+    const res = await api.get("/AML");
+    setAmlList(res.data);
+  };
+
+  useEffect(() => {
+    fetchAML();
+  }, []);
+
+  const handleSave = async () => {
+    if (editId) {
+      await api.put(`/AML/${editId}`, form);
+    } else {
+      await api.post("/AML", form);
+    }
+    fetchAML();
+    setOpen(false);
+    setForm({ planNumber: "", status: "", complianceDate: "", comments: "" });
+    setEditId(null);
+  };
+
+  const handleEdit = (aml) => {
+    setForm({
+      planNumber: aml.plan_Number || aml.Plan_Number,
+      status: aml.status || aml.Status,
+      complianceDate: aml.compliance_Date || aml.Compliance_Date,
+      comments: aml.comments || aml.Comments,
+    });
+    setEditId(aml.aml_ID || aml.AML_ID);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/AML/${id}`);
+    fetchAML();
+  };
+
+  const filtered = amlList.filter((a) =>
+    (a.plan_Number || a.Plan_Number || "")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  return (
+    <Container>
+      <h2>AML Records</h2>
+      <sdf-button variant="contained" onClick={() => setOpen(true)}>
+        Add AML
+      </sdf-button>
+      <TextField
+        label="Search by Plan Number"
+        size="small"
+        style={{ margin: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      <div style={{ maxHeight: "400px", overflow: "auto" }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>AML_ID</TableCell>
+              <TableCell>Plan Number</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Compliance Date</TableCell>
+              <TableCell>Comments</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.length > 0 ? (
+              filtered
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((a) => (
+                  <TableRow key={a.aml_ID || a.AML_ID}>
+                    <TableCell>{a.aml_ID || a.AML_ID}</TableCell>
+                    <TableCell>{a.plan_Number || a.Plan_Number}</TableCell>
+                    <TableCell>{a.status || a.Status}</TableCell>
+                    <TableCell>
+                      {a.compliance_Date || a.Compliance_Date}
+                    </TableCell>
+                    <TableCell>{a.comments || a.Comments}</TableCell>
+                    <TableCell>
+                      <Button onClick={() => handleEdit(a)}>Edit</Button>
+                      <Button
+                        color="error"
+                        onClick={() => handleDelete(a.aml_ID || a.AML_ID)}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  No records found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+      />
+
+      {/* Modal Form */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{editId ? "Edit AML" : "Add AML"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Plan Number"
+            margin="normal"
+            value={form.planNumber}
+            onChange={(e) => setForm({ ...form, planNumber: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Status"
+            margin="normal"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Compliance Date"
+            type="date"
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+            value={form.complianceDate}
+            onChange={(e) =>
+              setForm({ ...form, complianceDate: e.target.value })
+            }
+          />
+          <TextField
+            fullWidth
+            label="Comments"
+            margin="normal"
+            value={form.comments}
+            onChange={(e) => setForm({ ...form, comments: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}
