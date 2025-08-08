@@ -1,19 +1,135 @@
-IdentityUser user;
+import React, { useState } from "react";
+import { Container, Typography, TextField, Button, Box } from "@mui/material";
+import api from "../api";
+import { useDispatch } from "react-redux";
+import { setAuth } from "../redux/slices/authSlice";
+import { useNavigate } from "react-router-dom";
 
-if (model.UsernameOrEmail.Contains("@"))
-{
-    user = await _userManager.FindByEmailAsync(model.UsernameOrEmail);
-}
-else
-{
-    user = await _userManager.FindByNameAsync(model.UsernameOrEmail);
-}
+const Auth = () => {
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [registerInfo, setRegisterInfo] = useState({
+    username: "",
+    email: "",
+    password: "",
+    role: "",
+  });
 
-if (user == null)
-    return Unauthorized("User not found");
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, false);
-if (!result.Succeeded)
-    return Unauthorized("Invalid credentials");
+  const handleLogin = async () => {
+    try {
+      const res = await api.post("/auth/login", {
+        usernameOrEmail,
+        password,
+      });
+      const { token, roles } = res.data;
+      dispatch(setAuth({ token, roles }));
 
-// Rest of the token logic stays the same
+      if (roles.includes("Admin")) navigate("/admin");
+      else if (roles.includes("AML")) navigate("/aml");
+      else if (roles.includes("Trustee")) navigate("/trustee");
+      else if (roles.includes("SP")) navigate("/sp");
+      else navigate("/");
+    } catch (error) {
+      alert("Login failed: " + error.response?.data || error.message);
+    }
+  };
+
+  const handleRegister = async () => {
+    try {
+      await api.post("/auth/register", registerInfo);
+      alert("User registered successfully!");
+    } catch (error) {
+      alert("Registration failed: " + error.response?.data || error.message);
+    }
+  };
+
+  return (
+    <Container maxWidth="sm">
+      <Box mt={4}>
+        <Typography variant="h4" align="center" gutterBottom>
+          Login
+        </Typography>
+        <TextField
+          label="Username or Email"
+          fullWidth
+          margin="normal"
+          value={usernameOrEmail}
+          onChange={(e) => setUsernameOrEmail(e.target.value)}
+        />
+        <TextField
+          label="Password"
+          type="password"
+          fullWidth
+          margin="normal"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <Button
+          variant="contained"
+          color="primary"
+          fullWidth
+          onClick={handleLogin}
+        >
+          Login
+        </Button>
+      </Box>
+
+      <Box mt={6}>
+        <Typography variant="h4" align="center" gutterBottom>
+          Register
+        </Typography>
+        <TextField
+          label="Username"
+          fullWidth
+          margin="normal"
+          value={registerInfo.username}
+          onChange={(e) =>
+            setRegisterInfo({ ...registerInfo, username: e.target.value })
+          }
+        />
+        <TextField
+          label="Email"
+          type="email"
+          fullWidth
+          margin="normal"
+          value={registerInfo.email}
+          onChange={(e) =>
+            setRegisterInfo({ ...registerInfo, email: e.target.value })
+          }
+        />
+        <TextField
+          label="Password"
+          type="password"
+          fullWidth
+          margin="normal"
+          value={registerInfo.password}
+          onChange={(e) =>
+            setRegisterInfo({ ...registerInfo, password: e.target.value })
+          }
+        />
+        <TextField
+          label="Role (Admin/AML/Trustee/SP)"
+          fullWidth
+          margin="normal"
+          value={registerInfo.role}
+          onChange={(e) =>
+            setRegisterInfo({ ...registerInfo, role: e.target.value })
+          }
+        />
+        <Button
+          variant="contained"
+          color="secondary"
+          fullWidth
+          onClick={handleRegister}
+        >
+          Register
+        </Button>
+      </Box>
+    </Container>
+  );
+};
+
+export default Auth;
