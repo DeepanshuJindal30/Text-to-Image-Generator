@@ -1,218 +1,681 @@
-USE PES
-/*Database Design (Manual Tables)*/
-CREATE TABLE Deepanshu_AML (
-    AML_ID INT IDENTITY(1,1) PRIMARY KEY,
-    Plan_Number VARCHAR(20) NOT NULL,
-    Status VARCHAR(50) NOT NULL,
-    Compliance_Date DATETIME NOT NULL,
-    Comments VARCHAR(255) NULL,
-    Created_On DATETIME DEFAULT GETDATE()
-);
-CREATE TABLE Deepanshu_Trustee (
-    Trustee_ID INT IDENTITY(1,1) PRIMARY KEY,
-    Name VARCHAR(100) NOT NULL,
-    Email VARCHAR(100) NOT NULL,
-    Phone VARCHAR(20) NULL,
-    Plan_Number VARCHAR(20) NOT NULL,
-    Created_On DATETIME DEFAULT GETDATE()
-);
-CREATE TABLE Deepanshu_SP (
-    SP_ID INT IDENTITY(1,1) PRIMARY KEY,
-    Name VARCHAR(100) NOT NULL,
-    Service_Type VARCHAR(50) NOT NULL,
-    Trustee_ID INT NOT NULL,
-    Created_On DATETIME DEFAULT GETDATE(),
-    FOREIGN KEY (Trustee_ID) REFERENCES Deepanshu_Trustee(Trustee_ID)
-);
+import React, { useEffect, useState } from "react";
+import api from "../api";
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TablePagination,
+} from "@mui/material";
 
-INSERT INTO Deepanshu_Trustee (Name, Email, Phone, Plan_Number)
-VALUES
-('John Trustee', 'john@example.com', '9876543210', 'P123'),
-('Mary Trustee', 'mary@example.com', '9988776655', 'P124');
-INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
-VALUES
-('P123', 'Compliant', GETDATE(), 'No issues'),
-('P124', 'Pending', GETDATE(), 'Audit scheduled');
-INSERT INTO Deepanshu_SP (Name, Service_Type, Trustee_ID)
-VALUES
-('Service Partner A', 'Investment', 2),
-('Service Partner B', 'Consulting', 4);
+export default function AMLList() {
+  const [amlList, setAmlList] = useState([]);
+  const [form, setForm] = useState({
+    planNumber: "",
+    status: "",
+    complianceDate: "",
+    comments: "",
+  });
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const fetchAML = async () => {
+    const res = await api.get("/AML");
+    setAmlList(res.data);
+  };
+
+  useEffect(() => {
+    fetchAML();
+  }, []);
+
+  const handleSave = async () => {
+    if (editId) {
+      await api.put(`/AML/${editId}`, form);
+    } else {
+      await api.post("/AML", form);
+    }
+    fetchAML();
+    setOpen(false);
+    setForm({ planNumber: "", status: "", complianceDate: "", comments: "" });
+    setEditId(null);
+  };
+
+  const handleEdit = (aml) => {
+    setForm({
+      planNumber: aml.plan_Number || aml.Plan_Number,
+      status: aml.status || aml.Status,
+      complianceDate: aml.compliance_Date || aml.Compliance_Date,
+      comments: aml.comments || aml.Comments,
+    });
+    setEditId(aml.aml_ID || aml.AML_ID);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/AML/${id}`);
+    fetchAML();
+  };
+
+  const filtered = amlList.filter((a) =>
+    (a.plan_Number || a.Plan_Number || "")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  return (
+    <Container>
+      <h2>AML Records</h2>
+      <sdf-button variant="contained" onClick={() => setOpen(true)}>
+        Add AML
+      </sdf-button>
+      <TextField
+        label="Search by Plan Number"
+        size="small"
+        style={{ margin: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      <div style={{ maxHeight: "400px", overflow: "auto" }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>AML_ID</TableCell>
+              <TableCell>Plan Number</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Compliance Date</TableCell>
+              <TableCell>Comments</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.length > 0 ? (
+              filtered
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((a) => (
+                  <TableRow key={a.aml_ID || a.AML_ID}>
+                    <TableCell>{a.aml_ID || a.AML_ID}</TableCell>
+                    <TableCell>{a.plan_Number || a.Plan_Number}</TableCell>
+                    <TableCell>{a.status || a.Status}</TableCell>
+                    <TableCell>
+                      {a.compliance_Date || a.Compliance_Date}
+                    </TableCell>
+                    <TableCell>{a.comments || a.Comments}</TableCell>
+                    <TableCell>
+                      <Button onClick={() => handleEdit(a)}>Edit</Button>
+                      <Button
+                        color="error"
+                        onClick={() => handleDelete(a.aml_ID || a.AML_ID)}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  No records found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+      />
+
+      {/* Modal Form */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{editId ? "Edit AML" : "Add AML"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Plan Number"
+            margin="normal"
+            value={form.planNumber}
+            onChange={(e) => setForm({ ...form, planNumber: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Status"
+            margin="normal"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Compliance Date"
+            type="date"
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+            value={form.complianceDate}
+            onChange={(e) =>
+              setForm({ ...form, complianceDate: e.target.value })
+            }
+          />
+          <TextField
+            fullWidth
+            label="Comments"
+            margin="normal"
+            value={form.comments}
+            onChange={(e) => setForm({ ...form, comments: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}
+import React, { useEffect, useState } from "react";
+import api from "../api";
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TablePagination,
+} from "@mui/material";
+
+export default function SPList() {
+  const [spList, setSpList] = useState([]);
+  const [form, setForm] = useState({
+    name: "",
+    serviceType: "",
+    trusteeId: "",
+  });
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const fetchSP = async () => {
+    const res = await api.get("/sp");
+    setSpList(res.data);
+  };
+
+  useEffect(() => {
+    fetchSP();
+  }, []);
+
+  const handleSave = async () => {
+    if (editId) {
+      await api.put(`/sp/${editId}`, form);
+    } else {
+      await api.post("/sp", form);
+    }
+    fetchSP();
+    setOpen(false);
+    setForm({ name: "", serviceType: "", trusteeId: "" });
+    setEditId(null);
+  };
+
+  const handleEdit = (sp) => {
+    setForm({
+      name: sp.name || sp.Name,
+      serviceType: sp.service_Type || sp.Service_Type,
+      trusteeId: sp.trustee_ID || sp.Trustee_ID,
+    });
+    setEditId(sp.sp_ID || sp.SP_ID);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/sp/${id}`);
+    fetchSP();
+  };
+
+  const filtered = spList.filter((sp) =>
+    (sp.name || sp.Name || "")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  return (
+    <Container>
+      <h2>Service Provider Records</h2>
+      <Button variant="contained" onClick={() => setOpen(true)}>
+        Add SP
+      </Button>
+      <TextField
+        label="Search by Name"
+        size="small"
+        style={{ margin: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      <div style={{ maxHeight: "400px", overflow: "auto" }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>SP_ID</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Service Type</TableCell>
+              <TableCell>Trustee_ID</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.length > 0 ? (
+              filtered
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((sp) => (
+                  <TableRow key={sp.sp_ID || sp.SP_ID}>
+                    <TableCell>{sp.sp_ID || sp.SP_ID}</TableCell>
+                    <TableCell>{sp.name || sp.Name}</TableCell>
+                    <TableCell>
+                      {sp.service_Type || sp.Service_Type}
+                    </TableCell>
+                    <TableCell>{sp.trustee_ID || sp.Trustee_ID}</TableCell>
+                    <TableCell>
+                      <Button onClick={() => handleEdit(sp)}>Edit</Button>
+                      <Button
+                        color="error"
+                        onClick={() => handleDelete(sp.sp_ID || sp.SP_ID)}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No records found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+      />
+
+      {/* Modal Form */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{editId ? "Edit Service Provider" : "Add Service Provider"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Name"
+            margin="normal"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Service Type"
+            margin="normal"
+            value={form.serviceType}
+            onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Trustee ID"
+            margin="normal"
+            value={form.trusteeId}
+            onChange={(e) => setForm({ ...form, trusteeId: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}import React, { useEffect, useState } from "react";
+import api from "../api";
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TablePagination,
+} from "@mui/material";
+
+export default function TrusteeList() {
+  const [trustees, setTrustees] = useState([]);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    planNumber: "",
+  });
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const fetchTrustees = async () => {
+    const res = await api.get("/Trustee");
+    setTrustees(res.data);
+  };
+
+  useEffect(() => {
+    fetchTrustees();
+  }, []);
+
+  const handleSave = async () => {
+    if (editId) {
+      await api.put(`/Trustee/${editId}`, form);
+    } else {
+      await api.post("/Trustee", form);
+    }
+    fetchTrustees();
+    setOpen(false);
+    setForm({ name: "", email: "", phone: "", planNumber: "" });
+    setEditId(null);
+  };
+
+  const handleEdit = (t) => {
+    setForm({
+      name: t.name || t.Name,
+      email: t.email || t.Email,
+      phone: t.phone || t.Phone,
+      planNumber: t.plan_Number || t.Plan_Number,
+    });
+    setEditId(t.trustee_ID || t.Trustee_ID);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/Trustee/${id}`);
+    fetchTrustees();
+  };
+
+  const filtered = trustees.filter((t) =>
+    (t.name || t.Name || "")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  return (
+    <Container>
+      <h2>Trustee Records</h2>
+      <Button variant="contained" onClick={() => setOpen(true)}>
+        Add Trustee
+      </Button>
+      <TextField
+        label="Search by Name"
+        size="small"
+        style={{ margin: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      <div style={{ maxHeight: "400px", overflow: "auto" }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>Trustee_ID</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Phone</TableCell>
+              <TableCell>Plan Number</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.length > 0 ? (
+              filtered
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((t) => (
+                  <TableRow key={t.trustee_ID || t.Trustee_ID}>
+                    <TableCell>{t.trustee_ID || t.Trustee_ID}</TableCell>
+                    <TableCell>{t.name || t.Name}</TableCell>
+                    <TableCell>{t.email || t.Email}</TableCell>
+                    <TableCell>{t.phone || t.Phone}</TableCell>
+                    <TableCell>{t.plan_Number || t.Plan_Number}</TableCell>
+                    <TableCell>
+                      <Button onClick={() => handleEdit(t)}>Edit</Button>
+                      <Button
+                        color="error"
+                        onClick={() =>
+                          handleDelete(t.trustee_ID || t.Trustee_ID)
+                        }
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  No records found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+      />
+
+      {/* Modal Form */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{editId ? "Edit Trustee" : "Add Trustee"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Name"
+            margin="normal"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Email"
+            margin="normal"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Phone"
+            margin="normal"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Plan Number"
+            margin="normal"
+            value={form.planNumber}
+            onChange={(e) =>
+              setForm({ ...form, planNumber: e.target.value })
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}
 
 
-SELECT * FROM Deepanshu_AML WITH (NOLOCK);
-SELECT * FROM Deepanshu_Trustee WITH (NOLOCK);
-SELECT * FROM Deepanshu_SP WITH (NOLOCK);
+import React from "react";
+import { Routes, Route, Link } from "react-router-dom";
+import Login from "./components/Login";
+import AMLList from "./components/AMLList";
+import TrusteeList from "./components/TrusteeList";
+import SPList from "./components/SPList";
+import Register from "./components/Register";
 
-/*PART 1: SQL CRUD QUERIES (with NOLOCK)*/
+export default function App() {
+  return (
+    <div>
+      <nav style={{ padding: "10px", background: "#f5f5f5" }}>
+        <Link to="/aml" style={{ marginRight: "15px" }}>AML</Link>
+        <Link to="/trustee" style={{ marginRight: "15px" }}>Trustee</Link>
+        <Link to="/sp" style={{ marginRight: "15px" }}>Service Providers</Link>
+        <Link to="/register" style={{ marginRight: "15px" }}>Register</Link>
+      </nav>
 
-INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
-VALUES ('PLAN123', 'Approved', GETDATE(), 'AML verified');
-
-SELECT * 
-FROM Deepanshu_AML WITH (NOLOCK);
-
-UPDATE Deepanshu_AML
-SET Status = 'Pending', Comments = 'Verification required'
-WHERE AML_ID = 1;
-
-DELETE FROM Deepanshu_AML
-WHERE AML_ID = 1;
-
-/*Trustee Table (Deepanshu_Trustee)
-Insert*/
-INSERT INTO Deepanshu_Trustee (Name, Email, Phone, Plan_Number)
-VALUES ('John Doe', 'john@example.com', '9876543210', 'PLAN123');
-
-SELECT * 
-FROM Deepanshu_Trustee WITH (NOLOCK);
-
-UPDATE Deepanshu_Trustee
-SET Email = 'john.doe@trustee.com'
-WHERE Trustee_ID = 1;
-
-DELETE FROM Deepanshu_Trustee
-WHERE Trustee_ID = 1;
-
-/*3. SP Table (Deepanshu_SP)*/
-
-INSERT INTO Deepanshu_SP (Name, Service_Type, Trustee_ID)
-VALUES ('ABC Services', 'Auditing', 1);
-
-SELECT * 
-FROM Deepanshu_SP WITH (NOLOCK);
-
-UPDATE Deepanshu_SP
-SET Service_Type = 'Advisory'
-WHERE SP_ID = 1;
-
-DELETE FROM Deepanshu_SP
-WHERE SP_ID = 1;
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/aml" element={<AMLList />} />
+        <Route path="/trustee" element={<TrusteeList />} />
+        <Route path="/sp" element={<SPList />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </div>
+  );
+}using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using PES.WebAPI.Data;
 
 
 
-/*FOR AUTHENTICATION*/
+var builder = WebApplication.CreateBuilder(args);
 
-CREATE TABLE Deepanshu_Users (
-    User_ID INT IDENTITY(1,1) PRIMARY KEY,
-    Username VARCHAR(50) UNIQUE NOT NULL,
-    PasswordHash VARCHAR(255) NOT NULL,
-    Role VARCHAR(50) NOT NULL,
-    Created_On DATETIME DEFAULT GETDATE()
-);
-SELECT * FROM Deepanshu_Users
-INSERT INTO Deepanshu_Users (Username, PasswordHash, Role)
-VALUES 
-('admin', 'admin123', 'Admin'),
-('manager', 'manager123', 'Manager');
-INSERT INTO AspNetRoles (Id,Name,NormalizedName,ConcurrencyStamp)
-VALUES 
-(NEWID(), 'Admin', 'ADMIN',NEWID()),
-(NEWID(), 'User', 'User',NEWID()),
-(NEWID(), 'Manager', 'Manager',NEWID());
+// 1. Add DbContext for Identity
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
 
-SELECT * FROM Deepanshu_Users
+// 2. Add Identity
+builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
 
-SELECT * FROM AspNetUsers
-
-SELECT * FROM AspNetRoles
-
-SELECT * FROM AspNetUserRoles
-
-
-/*Identity Authentication*/
-CREATE TABLE AspNetUsers (
-    Id NVARCHAR(450) PRIMARY KEY,
-    UserName NVARCHAR(256) NULL,
-    NormalizedUserName NVARCHAR(256) NULL,
-    Email NVARCHAR(256) NULL,
-    NormalizedEmail NVARCHAR(256) NULL,
-    EmailConfirmed BIT NOT NULL DEFAULT 0,
-    PasswordHash NVARCHAR(MAX) NULL,
-    SecurityStamp NVARCHAR(MAX) NULL,
-    ConcurrencyStamp NVARCHAR(MAX) NULL,
-    PhoneNumber NVARCHAR(MAX) NULL,
-    PhoneNumberConfirmed BIT NOT NULL DEFAULT 0,
-    TwoFactorEnabled BIT NOT NULL DEFAULT 0,
-    LockoutEnd DATETIMEOFFSET NULL,
-    LockoutEnabled BIT NOT NULL DEFAULT 1,
-    AccessFailedCount INT NOT NULL DEFAULT 0
-);
-
-CREATE TABLE AspNetRoles (
-    Id NVARCHAR(450) PRIMARY KEY,
-    Name NVARCHAR(256) NULL,
-    NormalizedName NVARCHAR(256) NULL,
-    ConcurrencyStamp NVARCHAR(MAX) NULL
-);
-
-CREATE TABLE AspNetUserRoles (
-    UserId NVARCHAR(450) NOT NULL,
-    RoleId NVARCHAR(450) NOT NULL,
-    PRIMARY KEY (UserId, RoleId),
-    FOREIGN KEY (UserId) REFERENCES AspNetUsers (Id) ON DELETE CASCADE,
-    FOREIGN KEY (RoleId) REFERENCES AspNetRoles (Id) ON DELETE CASCADE
-);
+// 3. Add JWT Authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+    };
+});
 
 
-INSERT INTO AspNetRoles (Id, Name, NormalizedName)
-VALUES ('1', 'Admin', 'ADMIN'), ('2', 'User', 'USER');
-INSERT INTO AspNetUsers (Id, UserName, NormalizedUserName, Email, NormalizedEmail, PasswordHash, EmailConfirmed)
-VALUES ('100', 'admin', 'ADMIN', 'admin@example.com', 'ADMIN@EXAMPLE.COM',
-'$2a$11$uK9m9rDPO...<HASHED_PASSWORD>', 1);
-INSERT INTO AspNetUserRoles (UserId, RoleId)
-VALUES ('100', '1');
+// Services
+builder.Services.AddAuthorization();
+builder.Services.AddEndpointsApiExplorer();
 
+builder.Services.AddSingleton<DapperContext>();
 
-DELETE FROM AspNetRoles
-DELETE FROM AspNetUsers
-DELETE FROM AspNetUserRoles
+builder.Services.AddCors(options => options.AddPolicy("AllowReactApp", p => p.WithOrigins("http://localhost:3000").
+AllowAnyMethod().AllowAnyHeader()));
+builder.Services.AddSwaggerGen();
+builder.Services.AddControllers();
 
-SELECT Id, UserName FROM AspNetUsers
-SELECT Id, Name FROM AspNetRoles
+var app = builder.Build();
 
-INSERT INTO AspNetUserRoles(UserId,RoleId)
-VALUES ('<UserId>','<RoleId>')
+// using (var scope = app.Services.CreateScope())
+// {
+//     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+//     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
 
-/*Pagination*/
+//     if (!await roleManager.RoleExistsAsync("Admin"))
+//         await roleManager.CreateAsync(new IdentityRole("Admin"));
+//     if (!await roleManager.RoleExistsAsync("User"))
+//         await roleManager.CreateAsync(new IdentityRole("User"));
 
--- Pagination for AML Table
-DECLARE @PageNumber INT = 1;
-DECLARE @PageSize INT = 10;
+//     // Create admin user if not exists
+//     var adminUser = await userManager.FindByNameAsync("admin");
+//     if (adminUser == null)
+//     {
+//         adminUser = new IdentityUser { UserName = "admin", Email = "admin@example.com" };
+//         await userManager.CreateAsync(adminUser, "Admin@123");
+//         await userManager.AddToRoleAsync(adminUser, "Admin");
+//     }
+// }
 
-SELECT *
-FROM Deepanshu_AML WITH (NOLOCK)
-ORDER BY AML_ID
-OFFSET (@PageNumber - 1) * @PageSize ROWS
-FETCH NEXT @PageSize ROWS ONLY;
-
--- Total count
-SELECT COUNT(*) FROM Deepanshu_AML WITH (NOLOCK);
-
-
-
--- Pagination for Trustee Table
-
-DECLARE @PageNumber INT = 1;
-DECLARE @PageSize INT = 10;
-SELECT *
-FROM Deepanshu_Trustee WITH (NOLOCK)
-ORDER BY Trustee_ID
-OFFSET (@PageNumber - 1) * @PageSize ROWS
-FETCH NEXT @PageSize ROWS ONLY;
-
--- Total count
-SELECT COUNT(*) FROM Deepanshu_Trustee WITH (NOLOCK);
-
-
--- Pagination for Service Provider Table
-
-DECLARE @PageNumber INT = 1;
-DECLARE @PageSize INT = 10;
-SELECT *
-FROM Deepanshu_SP WITH (NOLOCK)
-ORDER BY SP_ID
-OFFSET (@PageNumber - 1) * @PageSize ROWS
-FETCH NEXT @PageSize ROWS ONLY;
-
--- Total count
-SELECT COUNT(*) FROM Deepanshu_SP WITH (NOLOCK);
+app.UseCors("AllowReactApp");
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseDeveloperExceptionPage();
+app.MapControllers();
+app.Run();
