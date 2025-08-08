@@ -1,490 +1,218 @@
-
-using Microsoft.AspNetCore.Mvc;
-using Dapper;
-using PES.WebAPI.Data;
-using PES.WebAPI.Models;
-
-[ApiController]
-[Route("api/[controller]")]
-public class AMLController : ControllerBase
-{
-    private readonly DapperContext _context;
-
-    public AMLController(DapperContext context)
-    {
-        _context = context;
-    }
-
-    // ➡ CREATE (POST)
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] AMLModel model)
-    {
-        using var conn = _context.CreateConnection();
-        var sql = @"INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
-                    VALUES (@Plan_Number, @Status, @Compliance_Date, @Comments)";
-        await conn.ExecuteAsync(sql, model);
-        return Ok("AML record inserted successfully");
-    }
-
-    // ➡ READ (GET All)
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        using var conn = _context.CreateConnection();
-        var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK)";
-        var data = await conn.QueryAsync(sql);
-        return Ok(data);
-    }
-
-    // ➡ READ (GET by ID)
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        using var conn = _context.CreateConnection();
-        var sql = "SELECT * FROM Deepanshu_AML WITH (NOLOCK) WHERE AML_ID = @AML_ID";
-        var aml = await conn.QueryFirstOrDefaultAsync(sql, new { AML_ID = id });
-
-        if (aml == null)
-            return NotFound($"AML record with ID {id} not found.");
-
-        return Ok(aml);
-    }
-
-    // ➡ UPDATE (PUT)
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] AMLModel model)
-    {
-        using var conn = _context.CreateConnection();
-
-        var exists = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM Deepanshu_AML WHERE AML_ID = @AML_ID", new { AML_ID = id });
-
-        if (exists == 0)
-            return NotFound($"AML record with ID {id} not found.");
-
-        var sql = @"UPDATE Deepanshu_AML 
-                    SET Plan_Number = @Plan_Number, Status = @Status, Compliance_Date = @Compliance_Date, Comments = @Comments
-                    WHERE AML_ID = @AML_ID";
-
-        await conn.ExecuteAsync(sql, new
-        {
-            model.Plan_Number,
-            model.Status,
-            model.Compliance_Date,
-            model.Comments,
-            AML_ID = id
-        });
-
-        return Ok($"AML record with ID {id} updated successfully");
-    }
-
-    // ➡ DELETE
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        using var conn = _context.CreateConnection();
-        var sql = "DELETE FROM Deepanshu_AML WHERE AML_ID = @AML_ID";
-        var rows = await conn.ExecuteAsync(sql, new { AML_ID = id });
-
-        if (rows == 0)
-            return NotFound($"AML record with ID {id} not found.");
-
-        return Ok($"AML record with ID {id} deleted successfully");
-    }
-}
-
-
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using PES.WebAPI.Models;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-
-namespace PES.WebAPI.Controllers
-{
-    [ApiController]
-    [Route("api/[controller]")]
-    public class AuthController : ControllerBase
-    {
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly SignInManager<IdentityUser> _signInManager;
-        private readonly IConfiguration _configuration;
-
-        public AuthController(UserManager<IdentityUser> userManager,
-                              SignInManager<IdentityUser> signInManager,
-                              IConfiguration configuration)
-        {
-            _userManager = userManager;
-            _signInManager = signInManager;
-            _configuration = configuration;
-        }
-
-        // REGISTER USER
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest model)
-        {
-            if (string.IsNullOrWhiteSpace(model.Email) || !IsValidEmail(model.Email))
-                return BadRequest("Invalid email format. Please use a valid email address.");
-
-            var user = new IdentityUser { UserName = model.Username, Email = model.Email };
-            var result = await _userManager.CreateAsync(user, model.Password);
-
-            if (!result.Succeeded)
-                return BadRequest(result.Errors);
-
-            // Add role if specified
-            if (!string.IsNullOrEmpty(model.Role))
-                await _userManager.AddToRoleAsync(user, model.Role);
-
-            return Ok("User registered successfully!");
-        }
-           private bool IsValidEmail(string email)
-        {
-            try
-            {
-                var addr = new System.Net.Mail.MailAddress(email);
-                return addr.Address == email;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        // LOGIN USER
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest model)
-        {
-            var user = await _userManager.FindByNameAsync(model.Username);
-            if (user == null)
-                return Unauthorized("User not found");
-
-            var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, false);
-            if (!result.Succeeded)
-                return Unauthorized("Invalid credentials");
-
-            // Get user roles
-            var roles = await _userManager.GetRolesAsync(user);
-
-            // Generate JWT
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
-
-            var token = tokenHandler.CreateToken(new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim(ClaimTypes.Name, user.UserName!),
-                    new Claim(ClaimTypes.NameIdentifier, user.Id),
-                }.Concat(roles.Select(r => new Claim(ClaimTypes.Role, r)))),
-                Expires = DateTime.UtcNow.AddHours(1),
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256)
-            });
-
-            return Ok(new LoginResponse
-            {
-                Token = tokenHandler.WriteToken(token),
-                Roles = roles
-            });
-        }
-    }
-}
-using Microsoft.AspNetCore.Mvc;
-using Dapper;
-using PES.WebAPI.Data;
-using PES.WebAPI.Models;
-
-[ApiController]
-[Route("api/[controller]")]
-public class SPController : ControllerBase
-{
-    private readonly DapperContext _context;
-
-    public SPController(DapperContext context)
-    {
-        _context = context;
-    }
-
-    // ➡ CREATE (POST)
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] SPModel model)
-    {
-        using var conn = _context.CreateConnection();
-
-        // Validate Trustee_ID exists
-        var trusteeExists = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM Deepanshu_Trustee WHERE Trustee_ID = @Trustee_ID",
-            new { Trustee_ID = model.Trustee_ID }
-        );
-
-        if (trusteeExists == 0)
-        {
-            return BadRequest($"Trustee_ID {model.Trustee_ID} does not exist.");
-        }
-
-        var sql = @"INSERT INTO Deepanshu_SP (Name, Service_Type, Trustee_ID)
-                    VALUES (@Name, @Service_Type, @Trustee_ID)";
-
-        await conn.ExecuteAsync(sql, model);
-
-        return Ok("SP record inserted successfully");
-    }
-
-    // ➡ READ (GET All)
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        using var conn = _context.CreateConnection();
-        var sql = "SELECT * FROM Deepanshu_SP WITH (NOLOCK)";
-        var data = await conn.QueryAsync(sql);
-        return Ok(data);
-    }
-
-    // ➡ READ (GET by ID)
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        using var conn = _context.CreateConnection();
-        var sql = "SELECT * FROM Deepanshu_SP WITH (NOLOCK) WHERE SP_ID = @SP_ID";
-        var sp = await conn.QueryFirstOrDefaultAsync(sql, new { SP_ID = id });
-
-        if (sp == null)
-            return NotFound($"SP record with ID {id} not found.");
-
-        return Ok(sp);
-    }
-
-    // ➡ UPDATE (PUT)
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] SPModel model)
-    {
-        using var conn = _context.CreateConnection();
-
-        // Check if SP record exists
-        var exists = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM Deepanshu_SP WHERE SP_ID = @SP_ID", new { SP_ID = id });
-
-        if (exists == 0)
-            return NotFound($"SP record with ID {id} not found.");
-
-        // Check Trustee_ID exists
-        var trusteeExists = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM Deepanshu_Trustee WHERE Trustee_ID = @Trustee_ID",
-            new { Trustee_ID = model.Trustee_ID });
-
-        if (trusteeExists == 0)
-            return BadRequest($"Trustee_ID {model.Trustee_ID} does not exist.");
-
-        var sql = @"UPDATE Deepanshu_SP 
-                    SET Name = @Name, Service_Type = @Service_Type, Trustee_ID = @Trustee_ID 
-                    WHERE SP_ID = @SP_ID";
-
-        await conn.ExecuteAsync(sql, new
-        {
-            model.Name,
-            model.Service_Type,
-            model.Trustee_ID,
-            SP_ID = id
-        });
-
-        return Ok($"SP record with ID {id} updated successfully");
-    }
-
-    // ➡ DELETE
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        using var conn = _context.CreateConnection();
-
-        var sql = "DELETE FROM Deepanshu_SP WHERE SP_ID = @SP_ID";
-        var rows = await conn.ExecuteAsync(sql, new { SP_ID = id });
-
-        if (rows == 0)
-            return NotFound($"SP record with ID {id} not found.");
-
-        return Ok($"SP record with ID {id} deleted successfully");
-    }
-}
-using Microsoft.AspNetCore.Mvc;
-using Dapper;
-using PES.WebAPI.Data;
-using PES.WebAPI.Models;
-
-[ApiController]
-[Route("api/[controller]")]
-public class TrusteeController : ControllerBase
-{
-    private readonly DapperContext _context;
-
-    public TrusteeController(DapperContext context)
-    {
-        _context = context;
-    }
-
-    // ➡ CREATE (POST)
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] TrusteeModel model)
-    {
-        using var conn = _context.CreateConnection();
-        var sql = @"INSERT INTO Deepanshu_Trustee (Name, Email, Phone, Plan_Number)
-                    VALUES (@Name, @Email, @Phone, @Plan_Number)";
-        await conn.ExecuteAsync(sql, model);
-        return Ok("Trustee record inserted successfully");
-    }
-
-    // ➡ READ (GET All)
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        using var conn = _context.CreateConnection();
-        var sql = "SELECT * FROM Deepanshu_Trustee WITH (NOLOCK)";
-        var data = await conn.QueryAsync(sql);
-        return Ok(data);
-    }
-
-    // ➡ READ (GET by ID)
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        using var conn = _context.CreateConnection();
-        var sql = "SELECT * FROM Deepanshu_Trustee WITH (NOLOCK) WHERE Trustee_ID = @Trustee_ID";
-        var trustee = await conn.QueryFirstOrDefaultAsync(sql, new { Trustee_ID = id });
-
-        if (trustee == null)
-            return NotFound($"Trustee with ID {id} not found.");
-
-        return Ok(trustee);
-    }
-
-    // ➡ UPDATE (PUT)
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] TrusteeModel model)
-    {
-        using var conn = _context.CreateConnection();
-
-        var exists = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM Deepanshu_Trustee WHERE Trustee_ID = @Trustee_ID", new { Trustee_ID = id });
-
-        if (exists == 0)
-            return NotFound($"Trustee with ID {id} not found.");
-
-        var sql = @"UPDATE Deepanshu_Trustee 
-                    SET Name = @Name, Email = @Email, Phone = @Phone, Plan_Number = @Plan_Number
-                    WHERE Trustee_ID = @Trustee_ID";
-
-        await conn.ExecuteAsync(sql, new
-        {
-            model.Name,
-            model.Email,
-            model.Phone,
-            model.Plan_Number,
-            Trustee_ID = id
-        });
-
-        return Ok($"Trustee with ID {id} updated successfully");
-    }
-
-    // ➡ DELETE
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        using var conn = _context.CreateConnection();
-
-        // Delete SP records linked to this Trustee first (FK constraint)
-        await conn.ExecuteAsync("DELETE FROM Deepanshu_SP WHERE Trustee_ID = @Trustee_ID", new { Trustee_ID = id });
-
-        var sql = "DELETE FROM Deepanshu_Trustee WHERE Trustee_ID = @Trustee_ID";
-        var rows = await conn.ExecuteAsync(sql, new { Trustee_ID = id });
-
-        if (rows == 0)
-            return NotFound($"Trustee with ID {id} not found.");
-
-        return Ok($"Trustee with ID {id} deleted successfully");
-    }
-}
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-
-namespace PES.WebAPI.Data
-{
-    public class ApplicationDbContext : IdentityDbContext
-    {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
-    }
-}
-using Microsoft.Data.SqlClient;
-using System.Data;
-
-namespace PES.WebAPI.Data
-{
-    public class DapperContext
-    {
-        private readonly string _connectionString;
-
-        public DapperContext(IConfiguration configuration)
-        {
-             _connectionString = configuration.GetConnectionString("Database")??throw new InvalidOperationException("Database connection is missing");
-           
-        }
-
-        public IDbConnection CreateConnection()
-        {
-           
-            return new SqlConnection(_connectionString);
-        }
-    }
-}namespace PES.WebAPI.Models
-{
-    public class RegisterRequest
-    {
-        public string Username { get; set; } = "";
-        public string Email { get; set; } = "";
-        public string Password { get; set; } = "";
-        public string Role { get; set; } = "User"; // optional
-    }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = "";
-        public string Password { get; set; } = "";
-    }
-
-    public class LoginResponse
-    {
-        public string Token { get; set; } = "";
-        public IEnumerable<string> Roles { get; set; } = new List<string>();
-    }
-}namespace PES.WebAPI.Models
-{
-    public class AMLModel
-    {
-        public string Plan_Number { get; set; }="";
-        public string Status { get; set; } = "";
-        public DateTime? Compliance_Date { get; set; }
-        public string? Comments { get; set; }
-    }
-}
-namespace PES.WebAPI.Models
-{
-    public class SPModel
-    {
-        public string Name { get; set; }="";
-        public string Service_Type { get; set; } = "";
-        public int Trustee_ID { get; set; }
-    }
-}
-namespace PES.WebAPI.Models
-{
-    public class TrusteeModel
-    {
-        public string Name { get; set; }="";
-        public string Email { get; set; }= "";
-        public string? Phone { get; set; }
-        public string Plan_Number { get; set; }= "";
-    }
-}
-
+USE PES
+/*Database Design (Manual Tables)*/
+CREATE TABLE Deepanshu_AML (
+    AML_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Plan_Number VARCHAR(20) NOT NULL,
+    Status VARCHAR(50) NOT NULL,
+    Compliance_Date DATETIME NOT NULL,
+    Comments VARCHAR(255) NULL,
+    Created_On DATETIME DEFAULT GETDATE()
+);
+CREATE TABLE Deepanshu_Trustee (
+    Trustee_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL,
+    Email VARCHAR(100) NOT NULL,
+    Phone VARCHAR(20) NULL,
+    Plan_Number VARCHAR(20) NOT NULL,
+    Created_On DATETIME DEFAULT GETDATE()
+);
+CREATE TABLE Deepanshu_SP (
+    SP_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL,
+    Service_Type VARCHAR(50) NOT NULL,
+    Trustee_ID INT NOT NULL,
+    Created_On DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (Trustee_ID) REFERENCES Deepanshu_Trustee(Trustee_ID)
+);
+
+INSERT INTO Deepanshu_Trustee (Name, Email, Phone, Plan_Number)
+VALUES
+('John Trustee', 'john@example.com', '9876543210', 'P123'),
+('Mary Trustee', 'mary@example.com', '9988776655', 'P124');
+INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
+VALUES
+('P123', 'Compliant', GETDATE(), 'No issues'),
+('P124', 'Pending', GETDATE(), 'Audit scheduled');
+INSERT INTO Deepanshu_SP (Name, Service_Type, Trustee_ID)
+VALUES
+('Service Partner A', 'Investment', 2),
+('Service Partner B', 'Consulting', 4);
+
+
+SELECT * FROM Deepanshu_AML WITH (NOLOCK);
+SELECT * FROM Deepanshu_Trustee WITH (NOLOCK);
+SELECT * FROM Deepanshu_SP WITH (NOLOCK);
+
+/*PART 1: SQL CRUD QUERIES (with NOLOCK)*/
+
+INSERT INTO Deepanshu_AML (Plan_Number, Status, Compliance_Date, Comments)
+VALUES ('PLAN123', 'Approved', GETDATE(), 'AML verified');
+
+SELECT * 
+FROM Deepanshu_AML WITH (NOLOCK);
+
+UPDATE Deepanshu_AML
+SET Status = 'Pending', Comments = 'Verification required'
+WHERE AML_ID = 1;
+
+DELETE FROM Deepanshu_AML
+WHERE AML_ID = 1;
+
+/*Trustee Table (Deepanshu_Trustee)
+Insert*/
+INSERT INTO Deepanshu_Trustee (Name, Email, Phone, Plan_Number)
+VALUES ('John Doe', 'john@example.com', '9876543210', 'PLAN123');
+
+SELECT * 
+FROM Deepanshu_Trustee WITH (NOLOCK);
+
+UPDATE Deepanshu_Trustee
+SET Email = 'john.doe@trustee.com'
+WHERE Trustee_ID = 1;
+
+DELETE FROM Deepanshu_Trustee
+WHERE Trustee_ID = 1;
+
+/*3. SP Table (Deepanshu_SP)*/
+
+INSERT INTO Deepanshu_SP (Name, Service_Type, Trustee_ID)
+VALUES ('ABC Services', 'Auditing', 1);
+
+SELECT * 
+FROM Deepanshu_SP WITH (NOLOCK);
+
+UPDATE Deepanshu_SP
+SET Service_Type = 'Advisory'
+WHERE SP_ID = 1;
+
+DELETE FROM Deepanshu_SP
+WHERE SP_ID = 1;
+
+
+
+/*FOR AUTHENTICATION*/
+
+CREATE TABLE Deepanshu_Users (
+    User_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Username VARCHAR(50) UNIQUE NOT NULL,
+    PasswordHash VARCHAR(255) NOT NULL,
+    Role VARCHAR(50) NOT NULL,
+    Created_On DATETIME DEFAULT GETDATE()
+);
+SELECT * FROM Deepanshu_Users
+INSERT INTO Deepanshu_Users (Username, PasswordHash, Role)
+VALUES 
+('admin', 'admin123', 'Admin'),
+('manager', 'manager123', 'Manager');
+INSERT INTO AspNetRoles (Id,Name,NormalizedName,ConcurrencyStamp)
+VALUES 
+(NEWID(), 'Admin', 'ADMIN',NEWID()),
+(NEWID(), 'User', 'User',NEWID()),
+(NEWID(), 'Manager', 'Manager',NEWID());
+
+SELECT * FROM Deepanshu_Users
+
+SELECT * FROM AspNetUsers
+
+SELECT * FROM AspNetRoles
+
+SELECT * FROM AspNetUserRoles
+
+
+/*Identity Authentication*/
+CREATE TABLE AspNetUsers (
+    Id NVARCHAR(450) PRIMARY KEY,
+    UserName NVARCHAR(256) NULL,
+    NormalizedUserName NVARCHAR(256) NULL,
+    Email NVARCHAR(256) NULL,
+    NormalizedEmail NVARCHAR(256) NULL,
+    EmailConfirmed BIT NOT NULL DEFAULT 0,
+    PasswordHash NVARCHAR(MAX) NULL,
+    SecurityStamp NVARCHAR(MAX) NULL,
+    ConcurrencyStamp NVARCHAR(MAX) NULL,
+    PhoneNumber NVARCHAR(MAX) NULL,
+    PhoneNumberConfirmed BIT NOT NULL DEFAULT 0,
+    TwoFactorEnabled BIT NOT NULL DEFAULT 0,
+    LockoutEnd DATETIMEOFFSET NULL,
+    LockoutEnabled BIT NOT NULL DEFAULT 1,
+    AccessFailedCount INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE AspNetRoles (
+    Id NVARCHAR(450) PRIMARY KEY,
+    Name NVARCHAR(256) NULL,
+    NormalizedName NVARCHAR(256) NULL,
+    ConcurrencyStamp NVARCHAR(MAX) NULL
+);
+
+CREATE TABLE AspNetUserRoles (
+    UserId NVARCHAR(450) NOT NULL,
+    RoleId NVARCHAR(450) NOT NULL,
+    PRIMARY KEY (UserId, RoleId),
+    FOREIGN KEY (UserId) REFERENCES AspNetUsers (Id) ON DELETE CASCADE,
+    FOREIGN KEY (RoleId) REFERENCES AspNetRoles (Id) ON DELETE CASCADE
+);
+
+
+INSERT INTO AspNetRoles (Id, Name, NormalizedName)
+VALUES ('1', 'Admin', 'ADMIN'), ('2', 'User', 'USER');
+INSERT INTO AspNetUsers (Id, UserName, NormalizedUserName, Email, NormalizedEmail, PasswordHash, EmailConfirmed)
+VALUES ('100', 'admin', 'ADMIN', 'admin@example.com', 'ADMIN@EXAMPLE.COM',
+'$2a$11$uK9m9rDPO...<HASHED_PASSWORD>', 1);
+INSERT INTO AspNetUserRoles (UserId, RoleId)
+VALUES ('100', '1');
+
+
+DELETE FROM AspNetRoles
+DELETE FROM AspNetUsers
+DELETE FROM AspNetUserRoles
+
+SELECT Id, UserName FROM AspNetUsers
+SELECT Id, Name FROM AspNetRoles
+
+INSERT INTO AspNetUserRoles(UserId,RoleId)
+VALUES ('<UserId>','<RoleId>')
+
+/*Pagination*/
+
+-- Pagination for AML Table
+DECLARE @PageNumber INT = 1;
+DECLARE @PageSize INT = 10;
+
+SELECT *
+FROM Deepanshu_AML WITH (NOLOCK)
+ORDER BY AML_ID
+OFFSET (@PageNumber - 1) * @PageSize ROWS
+FETCH NEXT @PageSize ROWS ONLY;
+
+-- Total count
+SELECT COUNT(*) FROM Deepanshu_AML WITH (NOLOCK);
+
+
+
+-- Pagination for Trustee Table
+
+DECLARE @PageNumber INT = 1;
+DECLARE @PageSize INT = 10;
+SELECT *
+FROM Deepanshu_Trustee WITH (NOLOCK)
+ORDER BY Trustee_ID
+OFFSET (@PageNumber - 1) * @PageSize ROWS
+FETCH NEXT @PageSize ROWS ONLY;
+
+-- Total count
+SELECT COUNT(*) FROM Deepanshu_Trustee WITH (NOLOCK);
+
+
+-- Pagination for Service Provider Table
+
+DECLARE @PageNumber INT = 1;
+DECLARE @PageSize INT = 10;
+SELECT *
+FROM Deepanshu_SP WITH (NOLOCK)
+ORDER BY SP_ID
+OFFSET (@PageNumber - 1) * @PageSize ROWS
+FETCH NEXT @PageSize ROWS ONLY;
+
+-- Total count
+SELECT COUNT(*) FROM Deepanshu_SP WITH (NOLOCK);
