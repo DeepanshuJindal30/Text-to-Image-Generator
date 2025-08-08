@@ -1,163 +1,101 @@
-import React, { useState } from "react";
-import {
-  Button,
-  TextField,
-  Container,
-  Typography,
-  Alert,
-  Box,
-  MenuItem
-} from "@mui/material";
+import React from "react";
+import { AppBar, Toolbar, Button, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import api from "../api";
 import { useDispatch } from "react-redux";
-import { setAuth } from "../redux/slices/authSlice";
+import { clearAuth } from "../redux/slices/authSlice";
 
-export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState(""); // for registration
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("User"); // default role for registration
-  const [error, setError] = useState("");
+export default function Navbar() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setError("");
-    setUsername("");
-    setEmail("");
-    setPassword("");
-  };
+  const token = localStorage.getItem("token");
+  const roles = JSON.parse(localStorage.getItem("roles") || "[]");
 
-  const handleSubmit = async () => {
-    setError("");
+  const isAdmin = roles.includes("Admin");
+  const isManager = roles.includes("Manager");
+  const isUser = roles.includes("User");
 
-    if (!username || !password || (!isLogin && !email)) {
-      setError("Please fill all required fields");
-      return;
-    }
-
-    try {
-      if (isLogin) {
-        const res = await api.post("/auth/login", { username, password });
-
-        const token = res.data.token;
-        const roles = res.data.roles;
-
-        // Store in localStorage
-        localStorage.setItem("token", token);
-        localStorage.setItem("roles", JSON.stringify(roles));
-
-        // Set auth header globally
-        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-        // Update Redux store
-        dispatch(setAuth({ token, roles }));
-
-        alert("Login Successful");
-
-        // Redirect based on role
-        if (roles.includes("Admin")) navigate("/aml");
-        else if (roles.includes("Manager")) navigate("/trustee");
-        else navigate("/sp");
-
-      } else {
-        // Registration validations
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
-
-        if (!emailRegex.test(email)) {
-          setError("Enter a valid email");
-          return;
-        }
-
-        if (!passwordRegex.test(password)) {
-          setError("Password must include uppercase, lowercase, number, special char");
-          return;
-        }
-
-        await api.post("/auth/register", { username, email, password, role });
-
-        alert("Registration successful. You can now log in.");
-        setIsLogin(true);
-      }
-    } catch (err) {
-      setError(err.response?.data || err.message || "Something went wrong");
-    }
+  const handleLogout = () => {
+    localStorage.clear();
+    dispatch(clearAuth());
+    navigate("/");
   };
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 5 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        {isLogin ? "Login" : "Register"}
-      </Typography>
+    <AppBar position="static">
+      <Toolbar>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Dashboard
+        </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+        {/* Show login/register only when not logged in */}
+        {!token && (
+          <>
+            <Button color="inherit" onClick={() => navigate("/")}>
+              Login
+            </Button>
+            <Button color="inherit" onClick={() => navigate("/register")}>
+              Register
+            </Button>
+          </>
+        )}
 
-      <TextField
-        label="Username"
-        fullWidth
-        margin="normal"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
+        {/* Show dashboard tabs after login based on role */}
+        {token && (
+          <>
+            {(isAdmin || isManager) && (
+              <Button color="inherit" onClick={() => navigate("/trustee")}>
+                Trustee
+              </Button>
+            )}
 
-      {!isLogin && (
-        <TextField
-          label="Email"
-          fullWidth
-          margin="normal"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      )}
+            {(isAdmin || isUser) && (
+              <Button color="inherit" onClick={() => navigate("/sp")}>
+                SP
+              </Button>
+            )}
 
-      <TextField
-        label="Password"
-        type="password"
-        fullWidth
-        margin="normal"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
+            {isAdmin && (
+              <Button color="inherit" onClick={() => navigate("/aml")}>
+                AML
+              </Button>
+            )}
 
-      {!isLogin && (
-        <TextField
-          label="Role"
-          select
-          fullWidth
-          margin="normal"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        >
-          <MenuItem value="Admin">Admin</MenuItem>
-          <MenuItem value="Manager">Manager</MenuItem>
-          <MenuItem value="User">User</MenuItem>
-        </TextField>
-      )}
+            <Button color="inherit" onClick={handleLogout}>
+              Logout
+            </Button>
+          </>
+        )}
+      </Toolbar>
+    </AppBar>
+  );
+}
 
-      <Button
-        variant="contained"
-        fullWidth
-        sx={{ mt: 2 }}
-        onClick={handleSubmit}
-      >
-        {isLogin ? "Login" : "Register"}
-      </Button>
 
-      <Box sx={{ mt: 2, textAlign: "center" }}>
-        <Button variant="text" onClick={toggleMode}>
-          {isLogin
-            ? "Don't have an account? Register"
-            : "Already have an account? Login"}
-        </Button>
-      </Box>
-    </Container>
+
+
+
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import Login from "./components/Login";
+import AMLList from "./components/AMLList";
+import TrusteeList from "./components/TrusteeList";
+import SPList from "./components/SPList";
+import Register from "./components/Register";
+import Navbar from "./components/Navbar"; // ✅ Import
+
+export default function App() {
+  return (
+    <div>
+      <Navbar /> {/* ✅ Use the dynamic navbar */}
+
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/aml" element={<AMLList />} />
+        <Route path="/trustee" element={<TrusteeList />} />
+        <Route path="/sp" element={<SPList />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </div>
   );
 }
