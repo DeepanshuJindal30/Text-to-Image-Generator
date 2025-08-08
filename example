@@ -1,198 +1,102 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import {
-  DataGrid
-} from '@mui/x-data-grid';
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
-  Select,
-  TextField,
-  Typography
-} from '@mui/material';
+using Microsoft.AspNetCore.Mvc;
+using PES.WebAPI.Models; // Adjust namespace as per your structure
+using PES.WebAPI.Data;   // Assuming ApplicationDbContext is here
+using System.Linq;
 
-const AMLList = () => {
-  const [amlList, setAmlList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [selectedAml, setSelectedAml] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const emptyAml = {
-    plan_Number: '',
-    status: '',
-    compliance_Date: '',
-    comments: ''
-  };
-
-  const fetchAML = async () => {
-    try {
-      const response = await axios.get('http://localhost:5041/api/AML/');
-      setAmlList(response.data);
-    } catch (error) {
-      console.error('Error fetching AML data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAML();
-  }, []);
-
-  const handleOpen = (aml = emptyAml) => {
-    setSelectedAml(aml);
-    setIsEditing(!!aml.id);
-    setOpenDialog(true);
-  };
-
-  const handleClose = () => {
-    setSelectedAml(null);
-    setOpenDialog(false);
-  };
-
-  const handleSave = async () => {
-    try {
-      if (isEditing) {
-        await axios.put(`http://localhost:5041/api/AML/${selectedAml.id}`, selectedAml);
-      } else {
-        await axios.post('http://localhost:5041/api/AML/', selectedAml);
-      }
-      fetchAML();
-      handleClose();
-    } catch (error) {
-      console.error('Error saving AML:', error);
-      alert('Error saving AML: ' + error.message);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`http://localhost:5041/api/AML/${id}`);
-      fetchAML();
-    } catch (error) {
-      console.error('Error deleting AML:', error);
-    }
-  };
-
-  const columns = [
-    { field: 'id', headerName: 'ID', width: 80 },
-    { field: 'plan_Number', headerName: 'Plan Number', width: 150 },
-    { field: 'status', headerName: 'Status', width: 120 },
-    { field: 'compliance_Date', headerName: 'Compliance Date', width: 160 },
-    { field: 'comments', headerName: 'Comments', width: 200 },
+namespace PES.WebAPI.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class AMLController : ControllerBase
     {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 200,
-      renderCell: (params) => (
-        <>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleOpen(params.row)}
-            sx={{ mr: 1 }}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            color="error"
-            onClick={() => handleDelete(params.row.id)}
-          >
-            Delete
-          </Button>
-        </>
-      )
+        private readonly ApplicationDbContext _context;
+
+        public AMLController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        // GET: api/AML?pageNumber=1&pageSize=10
+        [HttpGet]
+        public IActionResult GetPaginatedAMLs(int pageNumber = 1, int pageSize = 10)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var totalRecords = _context.AMLs.Count();
+
+            var amls = _context.AMLs
+                .OrderBy(a => a.AML_ID) // Make sure AML_ID is a property in your model
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var response = new
+            {
+                TotalRecords = totalRecords,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                Data = amls
+            };
+
+            return Ok(response);
+        }
+
+        // GET by ID: api/AML/5
+        [HttpGet("{id}")]
+        public IActionResult GetAML(int id)
+        {
+            var aml = _context.AMLs.FirstOrDefault(a => a.AML_ID == id);
+            if (aml == null)
+            {
+                return NotFound();
+            }
+            return Ok(aml);
+        }
+
+        // POST: api/AML
+        [HttpPost]
+        public IActionResult CreateAML([FromBody] AMLModel aml)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            _context.AMLs.Add(aml);
+            _context.SaveChanges();
+
+            return Ok(aml);
+        }
+
+        // PUT: api/AML/5
+        [HttpPut("{id}")]
+        public IActionResult UpdateAML(int id, [FromBody] AMLModel aml)
+        {
+            var existing = _context.AMLs.FirstOrDefault(a => a.AML_ID == id);
+            if (existing == null)
+                return NotFound();
+
+            // Update fields
+            existing.Plan_Number = aml.Plan_Number;
+            existing.Status = aml.Status;
+            existing.Compliance_Date = aml.Compliance_Date;
+            // Add other fields as needed
+
+            _context.SaveChanges();
+            return Ok(existing);
+        }
+
+        // DELETE: api/AML/5
+        [HttpDelete("{id}")]
+        public IActionResult DeleteAML(int id)
+        {
+            var aml = _context.AMLs.FirstOrDefault(a => a.AML_ID == id);
+            if (aml == null)
+                return NotFound();
+
+            _context.AMLs.Remove(aml);
+            _context.SaveChanges();
+
+            return Ok();
+        }
     }
-  ];
-
-  const filteredRows = amlList.filter(
-    (row) =>
-      row.plan_Number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      row.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (row.comments && row.comments.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  return (
-    <Box sx={{ height: 600, width: '100%', p: 2 }}>
-      <Typography variant="h5" gutterBottom>
-        AML List
-      </Typography>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-        <TextField
-          label="Search"
-          variant="outlined"
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <Button variant="contained" onClick={() => handleOpen()}>
-          Add AML
-        </Button>
-      </Box>
-
-      <DataGrid
-        rows={filteredRows}
-        columns={columns}
-        pageSize={5}
-        loading={loading}
-        autoHeight
-        disableRowSelectionOnClick
-      />
-
-      <Dialog open={openDialog} onClose={handleClose}>
-        <DialogTitle>{isEditing ? 'Edit AML' : 'Add AML'}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-          <TextField
-            label="Plan Number"
-            value={selectedAml?.plan_Number || ''}
-            onChange={(e) => setSelectedAml({ ...selectedAml, plan_Number: e.target.value })}
-            fullWidth
-          />
-          <Select
-            value={selectedAml?.status || ''}
-            onChange={(e) => setSelectedAml({ ...selectedAml, status: e.target.value })}
-            fullWidth
-            displayEmpty
-          >
-            <MenuItem value="">Select Status</MenuItem>
-            <MenuItem value="Active">Active</MenuItem>
-            <MenuItem value="Inactive">Inactive</MenuItem>
-          </Select>
-          <TextField
-            label="Compliance Date"
-            type="date"
-            value={selectedAml?.compliance_Date?.substring(0, 10) || ''}
-            onChange={(e) => setSelectedAml({ ...selectedAml, compliance_Date: e.target.value })}
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            label="Comments"
-            value={selectedAml?.comments || ''}
-            onChange={(e) => setSelectedAml({ ...selectedAml, comments: e.target.value })}
-            fullWidth
-            multiline
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-};
-
-export default AMLList;
+}
