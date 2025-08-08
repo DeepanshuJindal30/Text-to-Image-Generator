@@ -11,8 +11,8 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
+  // Read from localStorage on first render
   useEffect(() => {
-    // Check login state from localStorage on load
     const loggedIn = localStorage.getItem("isLoggedIn") === "true";
     setIsLoggedIn(loggedIn);
   }, []);
@@ -20,7 +20,7 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
     setIsLoggedIn(false);
-    navigate("/"); // redirect to login page
+    navigate("/");
   };
 
   return (
@@ -31,9 +31,7 @@ export default function App() {
             <Link to="/aml" style={{ marginRight: "15px" }}>AML</Link>
             <Link to="/trustee" style={{ marginRight: "15px" }}>Trustee</Link>
             <Link to="/sp" style={{ marginRight: "15px" }}>Service Providers</Link>
-            <button onClick={handleLogout} style={{ marginLeft: "15px" }}>
-              Logout
-            </button>
+            <button onClick={handleLogout}>Logout</button>
           </>
         ) : (
           <>
@@ -48,6 +46,7 @@ export default function App() {
         <Route path="/trustee" element={<TrusteeList />} />
         <Route path="/sp" element={<SPList />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
       </Routes>
     </div>
   );
