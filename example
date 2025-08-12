@@ -1,107 +1,163 @@
+{/* Two-column grid */}
+<div className="grid grid-cols-2 gap-4">
+  {/* Username */}
+  <div className="flex items-center gap-2">
+    <sdf-icon icon="contact-card"></sdf-icon>
+    <SdfInput
+      label="Username"
+      value={username}
+      onChange={(e) => setUsername(e.target.value)}
+    />
+  </div>
+
+  {/* Role */}
+  <div className="flex items-center gap-2">
+    <sdf-icon icon="action-edit"></sdf-icon>
+    <SdfInput
+      label="Role"
+      value={role}
+      onChange={(e) => setRole(e.target.value)}
+    />
+  </div>
+
+  {/* Email */}
+  <div className="flex items-center gap-2">
+    <sdf-icon icon="action-email"></sdf-icon>
+    <SdfInput
+      label="Email"
+      type="email"
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+    />
+  </div>
+
+  {/* Password */}
+  <div className="flex items-center gap-2">
+    <sdf-icon icon="action-lock"></sdf-icon>
+    <SdfInput
+      label="Password"
+      type="password"
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+    />
+  </div>
+</div>
+
+{/* Button */}
+<div className="mt-6">
+  <SdfButton variant="outlined" fullWidth onClick={handleRegister}>
+    Register
+  </SdfButton>
+</div>
+
+
+
+
+
 import React, { useState } from "react";
-import { SdfInput, SdfButton } from "@waypoint/react-components";
-import api from "../api";
-import { useNavigate } from "react-router-dom";
+import { Container, TextField, Button, Typography, Box, Paper, IconButton, InputAdornment } from "@mui/material";
+import { Visibility, VisibilityOff, LockOutlined, EmailOutlined } from "@mui/icons-material";
+import axios from "axios";
 
-export default function Register() {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("User");
+const Login = () => {
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const [success, setSuccess] = useState("");
 
-  const handleRegister = async () => {
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError("");
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address");
-      return;
-    }
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
-    if (!passwordRegex.test(password)) {
-      setError(
-        "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
-      );
-      return;
-    }
+    setSuccess("");
 
     try {
-      await api.post("/auth/register", { username, email, password, role });
-      alert("User Registered Successfully");
-      navigate("/");
+      const res = await axios.post("http://localhost:5000/api/auth/login", formData);
+      setSuccess("Login successful!");
+      localStorage.setItem("token", res.data.token); // store token if returned
     } catch (err) {
-      setError(
-        "Registration Failed: " + (err.response?.data || err.message)
-      );
+      setError(err.response?.data?.message || "Login failed!");
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
-      <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-2xl">
-        <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
-          <sdf-icon icon="action-add"></sdf-icon> Create an Account
-        </h2>
+    <Container maxWidth="sm">
+      <Paper elevation={3} sx={{ p: 4, mt: 8 }}>
+        <Typography variant="h4" align="center" gutterBottom>
+          Login
+        </Typography>
 
         {error && (
-          <div className="mb-4 text-red-600 bg-red-100 p-2 rounded">{error}</div>
+          <Typography color="error" variant="body2" align="center">
+            {error}
+          </Typography>
+        )}
+        {success && (
+          <Typography color="primary" variant="body2" align="center">
+            {success}
+          </Typography>
         )}
 
-        {/* Two-column grid */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Username */}
-          <div className="flex items-center gap-2">
-            <sdf-icon icon="contact-card"></sdf-icon>
-            <SdfInput
-              label="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </div>
+        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 2 }}>
+          {/* Email Field */}
+          <TextField
+            fullWidth
+            label="Email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            margin="normal"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailOutlined />
+                </InputAdornment>
+              ),
+            }}
+          />
 
-          {/* Role */}
-          <div className="flex items-center gap-2">
-            <sdf-icon icon="action-edit"></sdf-icon>
-            <SdfInput
-              label="Role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-            />
-          </div>
+          {/* Password Field */}
+          <TextField
+            fullWidth
+            label="Password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={formData.password}
+            onChange={handleChange}
+            required
+            margin="normal"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockOutlined />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
 
-          {/* Email */}
-          <div className="flex items-center gap-2">
-            <sdf-icon icon="action-email"></sdf-icon>
-            <SdfInput
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-
-          {/* Password */}
-          <div className="flex items-center gap-2">
-            <sdf-icon icon="action-lock"></sdf-icon>
-            <SdfInput
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Button */}
-        <div className="mt-6">
-          <SdfButton variant="outlined" fullWidth onClick={handleRegister}>
-            <sdf-icon icon="action-add" class="mr-2"></sdf-icon>
-            Register
-          </SdfButton>
-        </div>
-      </div>
-    </div>
+          {/* Submit Button */}
+          <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 3 }}>
+            Login
+          </Button>
+        </Box>
+      </Paper>
+    </Container>
   );
-}
+};
+
+export default Login;
