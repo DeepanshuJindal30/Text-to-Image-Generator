@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SdfInput, SdfButton } from '@waypoint/react-components';
 
 export default function Login({ onLogin }) {
   const [formData, setFormData] = useState({
@@ -6,45 +7,39 @@ export default function Login({ onLogin }) {
     password: '',
   });
 
-  const handleChange = (e) => {
+  const handleChange = (field, value) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [field]: value,
     });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // TODO: API call for login
-    console.log('Login form submitted', formData);
+    console.log('Login data:', formData);
     if (onLogin) onLogin(formData);
   };
 
   return (
-    <div className="login-container">
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <sdf-textfield
+    <div className="flex items-center justify-center h-full p-8">
+      <form onSubmit={handleSubmit} className="space-y-4 w-80">
+        <SdfInput
           label="Email"
+          id="login-email"
           type="email"
-          name="email"
           value={formData.email}
-          onChange={handleChange}
-          required
-        ></sdf-textfield>
-
-        <sdf-textfield
+          onChange={(e) => handleChange('email', e.target.value)}
+        />
+        <SdfInput
           label="Password"
+          id="login-password"
           type="password"
-          name="password"
           value={formData.password}
-          onChange={handleChange}
-          required
-        ></sdf-textfield>
-
-        <sdf-button type="submit" variant="primary">
+          onChange={(e) => handleChange('password', e.target.value)}
+        />
+        <SdfButton type="submit" variant="primary" block>
           Login
-        </sdf-button>
+        </SdfButton>
       </form>
     </div>
   );
@@ -53,8 +48,8 @@ export default function Login({ onLogin }) {
 
 
 
-
 import React, { useState } from 'react';
+import { SdfInput, SdfButton } from '@waypoint/react-components';
 
 export default function Register({ onRegister }) {
   const [formData, setFormData] = useState({
@@ -64,10 +59,10 @@ export default function Register({ onRegister }) {
     confirmPassword: '',
   });
 
-  const handleChange = (e) => {
+  const handleChange = (field, value) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [field]: value,
     });
   };
 
@@ -77,54 +72,44 @@ export default function Register({ onRegister }) {
       alert('Passwords do not match');
       return;
     }
-    // TODO: API call for registration
-    console.log('Registration form submitted', formData);
+    console.log('Register data:', formData);
     if (onRegister) onRegister(formData);
   };
 
   return (
-    <div className="register-container">
-      <h2>Register</h2>
-      <form onSubmit={handleSubmit}>
-        <sdf-textfield
+    <div className="flex items-center justify-center h-full p-8">
+      <form onSubmit={handleSubmit} className="space-y-4 w-80">
+        <SdfInput
           label="Full Name"
+          id="register-name"
           type="text"
-          name="name"
           value={formData.name}
-          onChange={handleChange}
-          required
-        ></sdf-textfield>
-
-        <sdf-textfield
+          onChange={(e) => handleChange('name', e.target.value)}
+        />
+        <SdfInput
           label="Email"
+          id="register-email"
           type="email"
-          name="email"
           value={formData.email}
-          onChange={handleChange}
-          required
-        ></sdf-textfield>
-
-        <sdf-textfield
+          onChange={(e) => handleChange('email', e.target.value)}
+        />
+        <SdfInput
           label="Password"
+          id="register-password"
           type="password"
-          name="password"
           value={formData.password}
-          onChange={handleChange}
-          required
-        ></sdf-textfield>
-
-        <sdf-textfield
+          onChange={(e) => handleChange('password', e.target.value)}
+        />
+        <SdfInput
           label="Confirm Password"
+          id="register-confirm-password"
           type="password"
-          name="confirmPassword"
           value={formData.confirmPassword}
-          onChange={handleChange}
-          required
-        ></sdf-textfield>
-
-        <sdf-button type="submit" variant="primary">
+          onChange={(e) => handleChange('confirmPassword', e.target.value)}
+        />
+        <SdfButton type="submit" variant="primary" block>
           Register
-        </sdf-button>
+        </SdfButton>
       </form>
     </div>
   );
