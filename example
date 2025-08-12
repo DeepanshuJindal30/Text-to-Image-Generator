@@ -1,5 +1,5 @@
-// src/components/TrusteeList.jsx
-import React, { useEffect, useMemo, useState } from "react";
+// src/components/SPList.jsx
+import React, { useEffect, useState } from "react";
 import api from "../api";
 import {
   Table,
@@ -16,26 +16,13 @@ import {
   TablePagination,
   Box,
   Typography,
-  Grid,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import {
-  SdfButton,
-  SdfIcon,
-  SdfCard,
-  SdfCardHeader,
-  SdfCardFooter,
-} from "@waypoint/react-components";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { SdfButton, SdfIcon } from "@waypoint/react-components";
 
-export default function TrusteeList() {
-  const [trustees, setTrustees] = useState([]);
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    planNumber: "",
-  });
+export default function SPList() {
+  const [spList, setSpList] = useState([]);
+  const [form, setForm] = useState({ name: "", serviceType: "", trusteeId: "" });
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
@@ -44,13 +31,13 @@ export default function TrusteeList() {
 
   const navigate = useNavigate();
 
-  const fetchTrustees = async () => {
-    const res = await api.get("/Trustee");
-    setTrustees(res.data || []);
+  const fetchSP = async () => {
+    const res = await api.get("/sp");
+    setSpList(res.data);
   };
 
   useEffect(() => {
-    fetchTrustees();
+    fetchSP();
   }, []);
 
   const handleLogout = () => {
@@ -62,138 +49,40 @@ export default function TrusteeList() {
   const handleSave = async () => {
     const payload = {
       Name: form.name,
-      Email: form.email,
-      Phone: form.phone,
-      Plan_Number: form.planNumber,
+      Service_Type: form.serviceType,
+      Trustee_ID: parseInt(form.trusteeId, 10),
     };
 
     if (editId) {
-      await api.put(`/Trustee/${editId}`, payload);
+      await api.put(`/sp/${editId}`, payload);
     } else {
-      await api.post("/Trustee", payload);
+      await api.post("/sp", payload);
     }
 
-    fetchTrustees();
+    fetchSP();
     setOpen(false);
-    setForm({ name: "", email: "", phone: "", planNumber: "" });
+    setForm({ name: "", serviceType: "", trusteeId: "" });
     setEditId(null);
   };
 
-  const handleEdit = (t) => {
+  const handleEdit = (sp) => {
     setForm({
-      name: t.name || t.Name || "",
-      email: t.email || t.Email || "",
-      phone: t.phone || t.Phone || "",
-      planNumber: t.plan_Number || t.Plan_Number || "",
+      name: sp.name || sp.Name || "",
+      serviceType: sp.service_Type || sp.Service_Type || "",
+      trusteeId: (sp.trustee_ID || sp.Trustee_ID || "").toString(),
     });
-    setEditId(t.trustee_ID || t.Trustee_ID);
+    setEditId(sp.sp_ID || sp.SP_ID);
     setOpen(true);
   };
 
   const handleDelete = async (id) => {
-    await api.delete(`/Trustee/${id}`);
-    fetchTrustees();
+    await api.delete(`/sp/${id}`);
+    fetchSP();
   };
 
-  // Filter by name (client-side)
-  const filtered = useMemo(
-    () =>
-      trustees.filter((t) =>
-        (t.name || t.Name || "").toString().toLowerCase().includes(search.toLowerCase())
-      ),
-    [trustees, search]
+  const filtered = spList.filter((sp) =>
+    (sp.name || sp.Name || "").toString().toLowerCase().includes(search.toLowerCase())
   );
-
-  // ------- Dashboard metrics -------
-  const {
-    total,
-    uniquePlans,
-    withEmailPct,
-    withPhonePct,
-    recentlyAdded,
-    planChartData,
-  } = useMemo(() => {
-    const total = filtered.length;
-
-    const plans = new Set();
-    let withEmail = 0;
-    let withPhone = 0;
-
-    filtered.forEach((t) => {
-      const p = (t.plan_Number || t.Plan_Number || "").toString().trim();
-      if (p) plans.add(p);
-      if ((t.email || t.Email || "").toString().trim()) withEmail += 1;
-      if ((t.phone || t.Phone || "").toString().trim()) withPhone += 1;
-    });
-
-    const withEmailPct = total ? Math.round((withEmail / total) * 100) : 0;
-    const withPhonePct = total ? Math.round((withPhone / total) * 100) : 0;
-
-    // crude heuristic: max trustee id
-    const maxId = filtered.reduce((m, t) => {
-      const id = Number(t.trustee_ID || t.Trustee_ID || 0);
-      return Number.isFinite(id) ? Math.max(m, id) : m;
-    }, 0);
-
-    // bar chart: trustees per plan number
-    const counts = filtered.reduce((acc, t) => {
-      const key = (t.plan_Number || t.Plan_Number || "Unknown").toString().trim() || "Unknown";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-    const chart = Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
-
-    return {
-      total,
-      uniquePlans: plans.size,
-      withEmailPct,
-      withPhonePct,
-      recentlyAdded: maxId || "-",
-      planChartData: chart,
-    };
-  }, [filtered]);
-
-  // Export filtered CSV
-  const handleExportCsv = () => {
-    const headers = ["Trustee_ID", "Name", "Email", "Phone", "Plan_Number"];
-    const rows = filtered.map((t) => [
-      t.trustee_ID || t.Trustee_ID || "",
-      t.name || t.Name || "",
-      t.email || t.Email || "",
-      t.phone || t.Phone || "",
-      t.plan_Number || t.Plan_Number || "",
-    ]);
-
-    const csv =
-      headers.join(",") +
-      "\n" +
-      rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `trustees_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Distinct colors for bars
-  const BAR_COLORS = [
-    "#2563eb", // blue
-    "#22c55e", // green
-    "#eab308", // amber
-    "#ef4444", // red
-    "#a855f7", // purple
-    "#06b6d4", // cyan
-    "#f97316", // orange
-    "#84cc16", // lime
-    "#f43f5e", // rose
-    "#14b8a6", // teal
-  ];
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -210,7 +99,7 @@ export default function TrusteeList() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
           <SdfIcon icon="action-view-list" />
           <Typography variant="h5" fontWeight={700}>
-            Trustee Records
+            Service Provider Records
           </Typography>
         </Box>
 
@@ -223,22 +112,12 @@ export default function TrusteeList() {
           />
           <SdfButton
             action="standard"
-            emphasis="secondary"
-            onClick={handleExportCsv}
-            style={{ display: "inline-flex", gap: 6 }}
-            title="Export CSV"
-          >
-            <SdfIcon icon="action-download" />
-            Export
-          </SdfButton>
-          <SdfButton
-            action="standard"
             emphasis="primary"
             onClick={() => setOpen(true)}
             style={{ display: "inline-flex", gap: 8 }}
           >
             <SdfIcon icon="action-add" />
-            Add Trustee
+            Add SP
           </SdfButton>
           <SdfButton
             action="standard"
@@ -252,95 +131,16 @@ export default function TrusteeList() {
         </Box>
       </Box>
 
-      {/* Mini dashboard */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <SdfCard>
-            <SdfCardHeader title="Total Trustees" />
-            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{total}</Box>
-            <SdfCardFooter>
-              <Box sx={{ p: 2, pt: 0, color: "#64748b" }}>Filtered results</Box>
-            </SdfCardFooter>
-          </SdfCard>
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <SdfCard>
-            <SdfCardHeader title="Unique Plans" />
-            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{uniquePlans}</Box>
-            <SdfCardFooter>
-              <Box sx={{ p: 2, pt: 0, color: "#06b6d4" }}>Plan numbers</Box>
-            </SdfCardFooter>
-          </SdfCard>
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <SdfCard>
-            <SdfCardHeader title="With Email" />
-            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{withEmailPct}%</Box>
-            <SdfCardFooter>
-              <Box sx={{ p: 2, pt: 0, color: "#22c55e" }}>Coverage</Box>
-            </SdfCardFooter>
-          </SdfCard>
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <SdfCard>
-            <SdfCardHeader title="With Phone" />
-            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{withPhonePct}%</Box>
-            <SdfCardFooter>
-              <Box sx={{ p: 2, pt: 0, color: "#eab308" }}>Coverage</Box>
-            </SdfCardFooter>
-          </SdfCard>
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <SdfCard>
-            <SdfCardHeader title="Recently Added (max ID)" />
-            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{recentlyAdded}</Box>
-            <SdfCardFooter>
-              <Box sx={{ p: 2, pt: 0, color: "#94a3b8" }}>Heuristic</Box>
-            </SdfCardFooter>
-          </SdfCard>
-        </Grid>
-      </Grid>
-
-      {/* Plan Number chart */}
-      <Box
-        sx={{
-          p: 2,
-          mb: 2,
-          borderRadius: 2,
-          bgcolor: "#fff",
-          border: "1px solid #e5e7eb",
-          height: 220,
-        }}
-      >
-        <Typography variant="subtitle1" sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
-          <SdfIcon icon="action-view-reports" />
-          Trustees per Plan Number
-        </Typography>
-        <ResponsiveContainer width="100%" height={160}>
-          <BarChart data={planChartData}>
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Bar dataKey="value">
-              {planChartData.map((entry, idx) => (
-                <Cell key={`cell-${entry.name}`} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </Box>
-
       {/* Table */}
       <Box sx={{ borderRadius: 2, bgcolor: "#fff", border: "1px solid #e5e7eb" }}>
         <div style={{ maxHeight: 480, overflow: "auto" }}>
           <Table stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>Trustee_ID</TableCell>
+                <TableCell>SP_ID</TableCell>
                 <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell>Plan Number</TableCell>
+                <TableCell>Service Type</TableCell>
+                <TableCell>Trustee_ID</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -348,23 +148,21 @@ export default function TrusteeList() {
               {filtered.length > 0 ? (
                 filtered
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((t) => {
-                    const id = t.trustee_ID || t.Trustee_ID;
+                  .map((sp) => {
+                    const id = sp.sp_ID || sp.SP_ID;
                     return (
                       <TableRow key={id}>
                         <TableCell>{id}</TableCell>
-                        <TableCell>{t.name || t.Name}</TableCell>
-                        <TableCell>{t.email || t.Email}</TableCell>
-                        <TableCell>{t.phone || t.Phone}</TableCell>
-                        <TableCell>{t.plan_Number || t.Plan_Number}</TableCell>
+                        <TableCell>{sp.name || sp.Name}</TableCell>
+                        <TableCell>{sp.service_Type || sp.Service_Type}</TableCell>
+                        <TableCell>{sp.trustee_ID || sp.Trustee_ID}</TableCell>
                         <TableCell align="right" style={{ whiteSpace: "nowrap" }}>
                           <SdfButton
                             size="small"
                             action="standard"
                             emphasis="secondary"
-                            onClick={() => handleEdit(t)}
+                            onClick={() => handleEdit(sp)}
                             style={{ marginRight: 6, display: "inline-flex", gap: 6, padding: "2px 8px" }}
-                            title="Edit"
                           >
                             <SdfIcon icon="action-edit" />
                             Edit
@@ -375,7 +173,6 @@ export default function TrusteeList() {
                             emphasis="secondary"
                             onClick={() => handleDelete(id)}
                             style={{ display: "inline-flex", gap: 6, padding: "2px 8px" }}
-                            title="Delete"
                           >
                             <SdfIcon icon="action-delete" />
                             Delete
@@ -386,7 +183,7 @@ export default function TrusteeList() {
                   })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={5} align="center">
                     No records found
                   </TableCell>
                 </TableRow>
@@ -412,7 +209,7 @@ export default function TrusteeList() {
 
       {/* Modal Form */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{editId ? "Edit Trustee" : "Add Trustee"}</DialogTitle>
+        <DialogTitle>{editId ? "Edit Service Provider" : "Add Service Provider"}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
@@ -423,24 +220,17 @@ export default function TrusteeList() {
           />
           <TextField
             fullWidth
-            label="Email"
+            label="Service Type"
             margin="normal"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            value={form.serviceType}
+            onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
           />
           <TextField
             fullWidth
-            label="Phone"
+            label="Trustee ID"
             margin="normal"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Plan Number"
-            margin="normal"
-            value={form.planNumber}
-            onChange={(e) => setForm({ ...form, planNumber: e.target.value })}
+            value={form.trusteeId}
+            onChange={(e) => setForm({ ...form, trusteeId: e.target.value })}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
