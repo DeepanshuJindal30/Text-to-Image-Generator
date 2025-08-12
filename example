@@ -1,275 +1,95 @@
-// src/components/TrusteeList.jsx
-import React, { useEffect, useState } from "react";
-import api from "../api";
-import {
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Container,
-  TextField,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TablePagination,
-  Box,
-  Typography,
-} from "@mui/material";
+import React from "react";
+import { AppBar, Toolbar, Button, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { SdfButton, SdfIcon } from "@waypoint/react-components";
+import { useDispatch } from "react-redux";
+import { clearAuth } from "../redux/slices/authSlice";
 
-export default function TrusteeList() {
-  const [trustees, setTrustees] = useState([]);
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    planNumber: "",
-  });
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-
+export default function Navbar() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const fetchTrustees = async () => {
-    const res = await api.get("/Trustee");
-    setTrustees(res.data);
-  };
+  const token = localStorage.getItem("token");
+  const roles = JSON.parse(localStorage.getItem("roles") || "[]");
 
-  useEffect(() => {
-    fetchTrustees();
-  }, []);
+  const isAdmin = roles.includes("Admin");
+  const isManager = roles.includes("Manager");
+  const isUser = roles.includes("User");
 
   const handleLogout = () => {
     localStorage.clear();
-    delete api.defaults.headers.common["Authorization"];
+    dispatch(clearAuth());
     navigate("/");
   };
 
-  const handleSave = async () => {
-    const payload = {
-      Name: form.name,
-      Email: form.email,
-      Phone: form.phone,
-      Plan_Number: form.planNumber,
-    };
-
-    if (editId) {
-      await api.put(`/Trustee/${editId}`, payload);
-    } else {
-      await api.post("/Trustee", payload);
-    }
-
-    fetchTrustees();
-    setOpen(false);
-    setForm({ name: "", email: "", phone: "", planNumber: "" });
-    setEditId(null);
-  };
-
-  const handleEdit = (t) => {
-    setForm({
-      name: t.name || t.Name || "",
-      email: t.email || t.Email || "",
-      phone: t.phone || t.Phone || "",
-      planNumber: t.plan_Number || t.Plan_Number || "",
-    });
-    setEditId(t.trustee_ID || t.Trustee_ID);
-    setOpen(true);
-  };
-
-  const handleDelete = async (id) => {
-    await api.delete(`/Trustee/${id}`);
-    fetchTrustees();
-  };
-
-  const filtered = trustees.filter((t) =>
-    (t.name || t.Name || "").toString().toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      {/* Header */}
-      <Box
-        sx={{
-          mb: 2,
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          justifyContent: "space-between",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
-          <SdfIcon icon="contact-card" />
-          <Typography variant="h5" fontWeight={700}>
-            Trustee Records
-          </Typography>
-        </Box>
+    <AppBar position="static">
+      <Toolbar>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Dashboard
+        </Typography>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <TextField
-            size="small"
-            label="Search by Name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <SdfButton
-            action="standard"
-            emphasis="primary"
-            onClick={() => setOpen(true)}
-            style={{ display: "inline-flex", gap: 8 }}
-          >
-            <SdfIcon icon="action-add" />
-            Add Trustee
-          </SdfButton>
-          <SdfButton
-            action="standard"
-            emphasis="secondary"
-            onClick={handleLogout}
-            style={{ display: "inline-flex", gap: 6 }}
-          >
-            <SdfIcon icon="action-logout" />
-            Logout
-          </SdfButton>
-        </Box>
-      </Box>
+        {/* Show login/register only when not logged in */}
+        {!token && (
+          <>
+            <Button color="inherit" onClick={() => navigate("/")}>
+              Login
+            </Button>
+            <Button color="inherit" onClick={() => navigate("/register")}>
+              Register
+            </Button>
+          </>
+        )}
 
-      {/* Table */}
-      <Box sx={{ borderRadius: 2, bgcolor: "#fff", border: "1px solid #e5e7eb" }}>
-        <div style={{ maxHeight: 480, overflow: "auto" }}>
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell>Trustee_ID</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell>Plan Number</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filtered.length > 0 ? (
-                filtered
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((t) => {
-                    const id = t.trustee_ID || t.Trustee_ID;
-                    return (
-                      <TableRow key={id}>
-                        <TableCell>{id}</TableCell>
-                        <TableCell>{t.name || t.Name}</TableCell>
-                        <TableCell>{t.email || t.Email}</TableCell>
-                        <TableCell>{t.phone || t.Phone}</TableCell>
-                        <TableCell>{t.plan_Number || t.Plan_Number}</TableCell>
-                        <TableCell align="right" style={{ whiteSpace: "nowrap" }}>
-                          <SdfButton
-                            size="small"
-                            action="standard"
-                            emphasis="secondary"
-                            onClick={() => handleEdit(t)}
-                            style={{ marginRight: 6, display: "inline-flex", gap: 6, padding: "2px 8px" }}
-                          >
-                            <SdfIcon icon="action-edit" />
-                            Edit
-                          </SdfButton>
-                          <SdfButton
-                            size="small"
-                            action="standard"
-                            emphasis="secondary"
-                            onClick={() => handleDelete(id)}
-                            style={{ display: "inline-flex", gap: 6, padding: "2px 8px" }}
-                          >
-                            <SdfIcon icon="action-delete" />
-                            Delete
-                          </SdfButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    No records found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        {/* Show dashboard tabs after login based on role */}
+        {token && (
+          <>
+            {(isAdmin || isManager) && (
+              <Button color="inherit" onClick={() => navigate("/trustee")}>
+                Trustee
+              </Button>
+            )}
 
-        {/* Pagination */}
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filtered.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-        />
-      </Box>
+            {(isAdmin || isUser) && (
+              <Button color="inherit" onClick={() => navigate("/sp")}>
+                SP
+              </Button>
+            )}
 
-      {/* Modal Form */}
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{editId ? "Edit Trustee" : "Add Trustee"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label="Name"
-            margin="normal"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Email"
-            margin="normal"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Phone"
-            margin="normal"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Plan Number"
-            margin="normal"
-            value={form.planNumber}
-            onChange={(e) => setForm({ ...form, planNumber: e.target.value })}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <SdfButton
-            action="standard"
-            emphasis="secondary"
-            onClick={() => setOpen(false)}
-            style={{ display: "inline-flex", gap: 6 }}
-          >
-            <SdfIcon icon="action-close" />
-            Cancel
-          </SdfButton>
-          <SdfButton
-            action="standard"
-            emphasis="primary"
-            onClick={handleSave}
-            style={{ display: "inline-flex", gap: 6 }}
-          >
-            <SdfIcon icon="action-save" />
-            Save
-          </SdfButton>
-        </DialogActions>
-      </Dialog>
-    </Container>
+            {isAdmin && (
+              <Button color="inherit" onClick={() => navigate("/aml")}>
+                AML
+              </Button>
+            )}
+
+            <Button color="inherit" onClick={handleLogout}>
+              Logout
+            </Button>
+          </>
+        )}
+      </Toolbar>
+    </AppBar>
+  );
+}
+import { Routes, Route } from "react-router-dom";
+import Login from "./components/Login";
+import AMLList from "./components/AMLList";
+import TrusteeList from "./components/TrusteeList";
+import SPList from "./components/SPList";
+import Register from "./components/Register";
+import Navbar from "./components/NavBar"; // ✅ Import
+
+export default function App() {
+  return (
+    <div>
+      <Navbar /> {/* ✅ Use the dynamic navbar */}
+
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/aml" element={<AMLList />} />
+        <Route path="/trustee" element={<TrusteeList />} />
+        <Route path="/sp" element={<SPList />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </div>
   );
 }
