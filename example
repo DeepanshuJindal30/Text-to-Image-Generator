@@ -1,27 +1,23 @@
 import React, { useState } from "react";
 import { SdfInput, SdfButton } from "@waypoint/react-components";
-import api from "../api"; // axios instance
+import api from "../api";
 import { useNavigate } from "react-router-dom";
 
 export default function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("User"); // default role
-  const [error, setError] = useState(""); // error message
+  const [role, setRole] = useState("User");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleRegister = async () => {
-    setError(""); // clear error
-
-    // ✅ Email format validation
+    setError("");
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address");
       return;
     }
-
-    // ✅ Password validation
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
     if (!passwordRegex.test(password)) {
@@ -34,78 +30,70 @@ export default function Register() {
     try {
       await api.post("/auth/register", { username, email, password, role });
       alert("User Registered Successfully");
-      navigate("/"); // redirect to login
+      navigate("/");
     } catch (err) {
       setError(
-        "Registration Failed: " +
-          (err.response?.data || err.message)
+        "Registration Failed: " + (err.response?.data || err.message)
       );
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-50">
-      <div className="bg-white shadow-lg rounded-lg p-8 w-96">
-        <h2 className="text-2xl font-bold mb-6 flex items-center justify-center">
+    <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-lg">
+        <h2 className="text-3xl font-bold mb-6 flex items-center justify-center text-gray-800">
           <sdf-icon icon="action-add-user" class="mr-2"></sdf-icon>
-          Register
+          Create an Account
         </h2>
 
         {error && (
-          <div className="mb-4 text-red-600 bg-red-100 p-2 rounded">
-            {error}
-          </div>
+          <div className="mb-4 text-red-600 bg-red-100 p-2 rounded">{error}</div>
         )}
 
-        <div className="mb-4 flex items-center gap-2">
-          <sdf-icon icon="action-user"></sdf-icon>
-          <SdfInput
-            label="Username"
-            id="username"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
+        {/* Row: Username & Role */}
+        <div className="flex gap-4 mb-4">
+          <div className="flex items-center gap-2 flex-1">
+            <sdf-icon icon="action-user"></sdf-icon>
+            <SdfInput
+              label="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-1">
+            <sdf-icon icon="action-role"></sdf-icon>
+            <SdfInput
+              label="Role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            />
+          </div>
         </div>
 
+        {/* Email */}
         <div className="mb-4 flex items-center gap-2">
           <sdf-icon icon="action-mail"></sdf-icon>
           <SdfInput
             label="Email"
-            id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
 
-        <div className="mb-4 flex items-center gap-2">
+        {/* Password */}
+        <div className="mb-6 flex items-center gap-2">
           <sdf-icon icon="action-lock"></sdf-icon>
           <SdfInput
             label="Password"
-            id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
 
-        <div className="mb-4 flex items-center gap-2">
-          <sdf-icon icon="action-role"></sdf-icon>
-          <SdfInput
-            label="Role (Admin/User)"
-            id="role"
-            type="text"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          />
-        </div>
-
-        <SdfButton
-          variant="outlined"
-          fullWidth
-          onClick={handleRegister}
-        >
+        {/* Button */}
+        <SdfButton variant="outlined" fullWidth onClick={handleRegister}>
           <sdf-icon icon="action-add-user" class="mr-2"></sdf-icon>
           Register
         </SdfButton>
