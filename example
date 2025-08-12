@@ -1,125 +1,130 @@
-import React, { useState } from "react";
-import { Container, Typography } from "@mui/material"; // keeping Container & Typography for now
-import api from "../api";
-import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { setAuth } from "../redux/slices/authSlice";
-import { SdfButton, SdfTextField } from "@waypoint/react-components"; // ✅ Waypoint components
-
-export default function Login() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-
-  const handleLogin = async () => {
-    try {
-      const res = await api.post("/auth/login", {
-        usernameOrEmail: username,
-        password
-      });
-
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("roles", JSON.stringify(res.data.roles));
-
-      api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
-      dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
-
-      alert("Login Successful");
-
-      if (res.data.roles.includes("Admin")) {
-        navigate("/aml");
-      } else if (res.data.roles.includes("Manager")) {
-        navigate("/trustee");
-      } else {
-        navigate("/sp");
-      }
-    } catch (err) {
-      alert("Login Failed: " + (err.response?.data || err.message));
-    }
-  };
-
-  return (
-    <Container maxWidth="sm">
-      <Typography variant="h4" gutterBottom>
-        Login
-      </Typography>
-
-      <SdfTextField
-        id="username-email"
-        label="Enter Username or Email"
-        fullWidth
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        style={{ marginBottom: "1rem" }}
-      />
-
-      <SdfTextField
-        id="password"
-        type="password"
-        label="Password"
-        fullWidth
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{ marginBottom: "1.5rem" }}
-      />
-
-      <SdfButton
-        id="login-btn"
-        action="standard"
-        emphasis="primary"
-        onClick={handleLogin}
-        style={{ width: "100%" }}
-      >
-        Login
-      </SdfButton>
-    </Container>
-  );
-}
-
-
-
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onLogin({ email, password });
+    // TODO: API call for login
+    console.log('Login form submitted', formData);
+    if (onLogin) onLogin(formData);
   };
 
   return (
     <div className="login-container">
       <h2>Login</h2>
       <form onSubmit={handleSubmit}>
-        
-        {/* Email Field */}
         <sdf-textfield
           label="Email"
-          value={email}
-          onInput={(e) => setEmail(e.target.value)}
-          placeholder="Enter your email"
           type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
           required
         ></sdf-textfield>
 
-        {/* Password Field */}
         <sdf-textfield
           label="Password"
-          value={password}
-          onInput={(e) => setPassword(e.target.value)}
-          placeholder="Enter your password"
           type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
           required
         ></sdf-textfield>
 
-        {/* Submit Button */}
         <sdf-button type="submit" variant="primary">
           Login
         </sdf-button>
+      </form>
+    </div>
+  );
+}
 
+
+
+
+
+import React, { useState } from 'react';
+
+export default function Register({ onRegister }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+    // TODO: API call for registration
+    console.log('Registration form submitted', formData);
+    if (onRegister) onRegister(formData);
+  };
+
+  return (
+    <div className="register-container">
+      <h2>Register</h2>
+      <form onSubmit={handleSubmit}>
+        <sdf-textfield
+          label="Full Name"
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          required
+        ></sdf-textfield>
+
+        <sdf-textfield
+          label="Email"
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          required
+        ></sdf-textfield>
+
+        <sdf-textfield
+          label="Password"
+          type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          required
+        ></sdf-textfield>
+
+        <sdf-textfield
+          label="Confirm Password"
+          type="password"
+          name="confirmPassword"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          required
+        ></sdf-textfield>
+
+        <sdf-button type="submit" variant="primary">
+          Register
+        </sdf-button>
       </form>
     </div>
   );
