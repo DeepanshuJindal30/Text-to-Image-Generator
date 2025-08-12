@@ -1,11 +1,9 @@
-
 import React, { useState } from "react";
-import { Button, TextField, Container, Typography } from "@mui/material";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { setAuth } from "../redux/slices/authSlice";
-import { SdfButton } from "@waypoint/react-components";
+import { SdfButton, SdfInput } from "@waypoint/react-components";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -14,55 +12,73 @@ export default function Login() {
   const dispatch = useDispatch();
 
   const handleLogin = async () => {
-  try {
-    const res = await api.post("/auth/login", { 
-      usernameOrEmail: username,  // ✅ match backend property
-      password 
-    });
+    try {
+      const res = await api.post("/auth/login", {
+        usernameOrEmail: username,
+        password,
+      });
 
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("roles", JSON.stringify(res.data.roles));
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("roles", JSON.stringify(res.data.roles));
 
-    api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
-    dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
+      api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
+      dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
 
-    alert("Login Successful");
+      alert("Login Successful");
 
-    if (res.data.roles.includes("Admin")) {
-      navigate("/aml");
-    } else if (res.data.roles.includes("Manager")) {
-      navigate("/trustee");
-    } else {
-      navigate("/sp");
+      if (res.data.roles.includes("Admin")) {
+        navigate("/aml");
+      } else if (res.data.roles.includes("Manager")) {
+        navigate("/trustee");
+      } else {
+        navigate("/sp");
+      }
+    } catch (err) {
+      alert("Login Failed: " + (err.response?.data || err.message));
     }
-  } catch (err) {
-    alert("Login Failed: " + (err.response?.data || err.message));
-  }
-};
+  };
 
   return (
-    <Container maxWidth="sm">
-      <Typography variant="h4" gutterBottom>
-        Login
-      </Typography>
-      <TextField
-        label="Username or Email"
-        fullWidth
-        margin="normal"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
-      <TextField
-        label="Password"
-        type="password"
-        fullWidth
-        margin="normal"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <SdfButton variant="contained" fullWidth onClick={handleLogin}>
-        Login
-      </SdfButton>
-    </Container>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-8">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold mb-6 text-center flex items-center justify-center gap-2">
+          <sdf-icon icon="action-login"></sdf-icon>
+          Login
+        </h2>
+
+        {/* Username / Email */}
+        <div className="mb-4">
+          <SdfInput
+            label="Username or Email"
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            icon={<sdf-icon icon="contact-card"></sdf-icon>}
+          />
+        </div>
+
+        {/* Password */}
+        <div className="mb-6">
+          <SdfInput
+            label="Password"
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            icon={<sdf-icon icon="action-lock"></sdf-icon>}
+          />
+        </div>
+
+        {/* Login Button */}
+        <SdfButton
+          fullWidth
+          variant="primary"
+          onClick={handleLogin}
+        >
+          <sdf-icon icon="action-login"></sdf-icon> Login
+        </SdfButton>
+      </div>
+    </div>
   );
 }
