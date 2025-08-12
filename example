@@ -1,163 +1,55 @@
-{/* Two-column grid */}
-<div className="grid grid-cols-2 gap-4">
-  {/* Username */}
-  <div className="flex items-center gap-2">
-    <sdf-icon icon="contact-card"></sdf-icon>
-    <SdfInput
-      label="Username"
-      value={username}
-      onChange={(e) => setUsername(e.target.value)}
-    />
-  </div>
+import React, { useState } from 'react';
+import { SdfInput, SdfButton } from '@waypoint/react-components';
 
-  {/* Role */}
-  <div className="flex items-center gap-2">
-    <sdf-icon icon="action-edit"></sdf-icon>
-    <SdfInput
-      label="Role"
-      value={role}
-      onChange={(e) => setRole(e.target.value)}
-    />
-  </div>
-
-  {/* Email */}
-  <div className="flex items-center gap-2">
-    <sdf-icon icon="action-email"></sdf-icon>
-    <SdfInput
-      label="Email"
-      type="email"
-      value={email}
-      onChange={(e) => setEmail(e.target.value)}
-    />
-  </div>
-
-  {/* Password */}
-  <div className="flex items-center gap-2">
-    <sdf-icon icon="action-lock"></sdf-icon>
-    <SdfInput
-      label="Password"
-      type="password"
-      value={password}
-      onChange={(e) => setPassword(e.target.value)}
-    />
-  </div>
-</div>
-
-{/* Button */}
-<div className="mt-6">
-  <SdfButton variant="outlined" fullWidth onClick={handleRegister}>
-    Register
-  </SdfButton>
-</div>
-
-
-
-
-
-import React, { useState } from "react";
-import { Container, TextField, Button, Typography, Box, Paper, IconButton, InputAdornment } from "@mui/material";
-import { Visibility, VisibilityOff, LockOutlined, EmailOutlined } from "@mui/icons-material";
-import axios from "axios";
-
-const Login = () => {
+function LoginForm() {
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
+    username: '',
+    password: ''
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (id, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [id]: value
+    }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    console.log('Submitting:', formData);
 
-    try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", formData);
-      setSuccess("Login successful!");
-      localStorage.setItem("token", res.data.token); // store token if returned
-    } catch (err) {
-      setError(err.response?.data?.message || "Login failed!");
-    }
+    // Example fetch
+    fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    })
+      .then(res => res.json())
+      .then(data => console.log(data))
+      .catch(err => console.error(err));
   };
 
   return (
-    <Container maxWidth="sm">
-      <Paper elevation={3} sx={{ p: 4, mt: 8 }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          Login
-        </Typography>
-
-        {error && (
-          <Typography color="error" variant="body2" align="center">
-            {error}
-          </Typography>
-        )}
-        {success && (
-          <Typography color="primary" variant="body2" align="center">
-            {success}
-          </Typography>
-        )}
-
-        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 2 }}>
-          {/* Email Field */}
-          <TextField
-            fullWidth
-            label="Email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            margin="normal"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <EmailOutlined />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          {/* Password Field */}
-          <TextField
-            fullWidth
-            label="Password"
-            name="password"
-            type={showPassword ? "text" : "password"}
-            value={formData.password}
-            onChange={handleChange}
-            required
-            margin="normal"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <LockOutlined />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          {/* Submit Button */}
-          <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 3 }}>
-            Login
-          </Button>
-        </Box>
-      </Paper>
-    </Container>
+    <section className="flex items-center justify-center h-full p-8">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <SdfInput
+          label="Username"
+          id="username"
+          type="text"
+          value={formData.username}
+          onChange={(id, value) => handleChange(id, value)}
+        />
+        <SdfInput
+          label="Password"
+          id="password"
+          type="password"
+          value={formData.password}
+          onChange={(id, value) => handleChange(id, value)}
+        />
+        <SdfButton type="submit">Login</SdfButton>
+      </form>
+    </section>
   );
-};
+}
 
-export default Login;
+export default LoginForm;
