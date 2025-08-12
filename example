@@ -1,7 +1,7 @@
+// src/components/TrusteeList.jsx
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import {
-  Button,
   Table,
   TableHead,
   TableRow,
@@ -14,7 +14,11 @@ import {
   DialogContent,
   DialogTitle,
   TablePagination,
+  Box,
+  Typography,
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { SdfButton, SdfIcon } from "@waypoint/react-components";
 
 export default function TrusteeList() {
   const [trustees, setTrustees] = useState([]);
@@ -30,6 +34,8 @@ export default function TrusteeList() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  const navigate = useNavigate();
+
   const fetchTrustees = async () => {
     const res = await api.get("/Trustee");
     setTrustees(res.data);
@@ -39,24 +45,26 @@ export default function TrusteeList() {
     fetchTrustees();
   }, []);
 
-  const handleSave = async () => {
-    if (editId) {
-      await api.put(`/Trustee/${editId}`, {
-  Name: form.name,
-  Email: form.email,
-  Phone: form.phone,
-  Plan_Number: form.planNumber,
-});
+  const handleLogout = () => {
+    localStorage.clear();
+    delete api.defaults.headers.common["Authorization"];
+    navigate("/");
+  };
 
+  const handleSave = async () => {
+    const payload = {
+      Name: form.name,
+      Email: form.email,
+      Phone: form.phone,
+      Plan_Number: form.planNumber,
+    };
+
+    if (editId) {
+      await api.put(`/Trustee/${editId}`, payload);
     } else {
-      
-await api.post("/Trustee", {
-  Name: form.name,
-  Email: form.email,
-  Phone: form.phone,
-  Plan_Number: form.planNumber,
-});
+      await api.post("/Trustee", payload);
     }
+
     fetchTrustees();
     setOpen(false);
     setForm({ name: "", email: "", phone: "", planNumber: "" });
@@ -65,10 +73,10 @@ await api.post("/Trustee", {
 
   const handleEdit = (t) => {
     setForm({
-      name: t.name || t.Name,
-      email: t.email || t.Email,
-      phone: t.phone || t.Phone,
-      planNumber: t.plan_Number || t.Plan_Number,
+      name: t.name || t.Name || "",
+      email: t.email || t.Email || "",
+      phone: t.phone || t.Phone || "",
+      planNumber: t.plan_Number || t.Plan_Number || "",
     });
     setEditId(t.trustee_ID || t.Trustee_ID);
     setOpen(true);
@@ -80,88 +88,136 @@ await api.post("/Trustee", {
   };
 
   const filtered = trustees.filter((t) =>
-    (t.name || t.Name || "")
-      .toLowerCase()
-      .includes(search.toLowerCase())
+    (t.name || t.Name || "").toString().toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <Container>
-      <h2>Trustee Records</h2>
-      <Button variant="contained" onClick={() => setOpen(true)}>
-        Add Trustee
-      </Button>
-      <TextField
-        label="Search by Name"
-        size="small"
-        style={{ margin: "10px" }}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      <div style={{ maxHeight: "400px", overflow: "auto" }}>
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell>Trustee_ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>Plan Number</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filtered.length > 0 ? (
-              filtered
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((t) => (
-                  <TableRow key={t.trustee_ID || t.Trustee_ID}>
-                    <TableCell>{t.trustee_ID || t.Trustee_ID}</TableCell>
-                    <TableCell>{t.name || t.Name}</TableCell>
-                    <TableCell>{t.email || t.Email}</TableCell>
-                    <TableCell>{t.phone || t.Phone}</TableCell>
-                    <TableCell>{t.plan_Number || t.Plan_Number}</TableCell>
-                    <TableCell>
-                      <Button onClick={() => handleEdit(t)}>Edit</Button>
-                      <Button
-                        color="error"
-                        onClick={() =>
-                          handleDelete(t.trustee_ID || t.Trustee_ID)
-                        }
-                      >
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  No records found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25]}
-        component="div"
-        count={filtered.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={(e, newPage) => setPage(newPage)}
-        onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10));
-          setPage(0);
+    <Container maxWidth="lg" sx={{ py: 3 }}>
+      {/* Header */}
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          justifyContent: "space-between",
         }}
-      />
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+          <SdfIcon icon="contact-card" />
+          <Typography variant="h5" fontWeight={700}>
+            Trustee Records
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <TextField
+            size="small"
+            label="Search by Name"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <SdfButton
+            action="standard"
+            emphasis="primary"
+            onClick={() => setOpen(true)}
+            style={{ display: "inline-flex", gap: 8 }}
+          >
+            <SdfIcon icon="action-add" />
+            Add Trustee
+          </SdfButton>
+          <SdfButton
+            action="standard"
+            emphasis="secondary"
+            onClick={handleLogout}
+            style={{ display: "inline-flex", gap: 6 }}
+          >
+            <SdfIcon icon="action-logout" />
+            Logout
+          </SdfButton>
+        </Box>
+      </Box>
+
+      {/* Table */}
+      <Box sx={{ borderRadius: 2, bgcolor: "#fff", border: "1px solid #e5e7eb" }}>
+        <div style={{ maxHeight: 480, overflow: "auto" }}>
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Trustee_ID</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Phone</TableCell>
+                <TableCell>Plan Number</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filtered.length > 0 ? (
+                filtered
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((t) => {
+                    const id = t.trustee_ID || t.Trustee_ID;
+                    return (
+                      <TableRow key={id}>
+                        <TableCell>{id}</TableCell>
+                        <TableCell>{t.name || t.Name}</TableCell>
+                        <TableCell>{t.email || t.Email}</TableCell>
+                        <TableCell>{t.phone || t.Phone}</TableCell>
+                        <TableCell>{t.plan_Number || t.Plan_Number}</TableCell>
+                        <TableCell align="right" style={{ whiteSpace: "nowrap" }}>
+                          <SdfButton
+                            size="small"
+                            action="standard"
+                            emphasis="secondary"
+                            onClick={() => handleEdit(t)}
+                            style={{ marginRight: 6, display: "inline-flex", gap: 6, padding: "2px 8px" }}
+                          >
+                            <SdfIcon icon="action-edit" />
+                            Edit
+                          </SdfButton>
+                          <SdfButton
+                            size="small"
+                            action="standard"
+                            emphasis="secondary"
+                            onClick={() => handleDelete(id)}
+                            style={{ display: "inline-flex", gap: 6, padding: "2px 8px" }}
+                          >
+                            <SdfIcon icon="action-delete" />
+                            Delete
+                          </SdfButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
+                    No records found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={filtered.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+        />
+      </Box>
 
       {/* Modal Form */}
-      <Dialog open={open} onClose={() => setOpen(false)}>
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editId ? "Edit Trustee" : "Add Trustee"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -190,16 +246,28 @@ await api.post("/Trustee", {
             label="Plan Number"
             margin="normal"
             value={form.planNumber}
-            onChange={(e) =>
-              setForm({ ...form, planNumber: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, planNumber: e.target.value })}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <SdfButton
+            action="standard"
+            emphasis="secondary"
+            onClick={() => setOpen(false)}
+            style={{ display: "inline-flex", gap: 6 }}
+          >
+            <SdfIcon icon="action-close" />
+            Cancel
+          </SdfButton>
+          <SdfButton
+            action="standard"
+            emphasis="primary"
+            onClick={handleSave}
+            style={{ display: "inline-flex", gap: 6 }}
+          >
+            <SdfIcon icon="action-save" />
             Save
-          </Button>
+          </SdfButton>
         </DialogActions>
       </Dialog>
     </Container>
