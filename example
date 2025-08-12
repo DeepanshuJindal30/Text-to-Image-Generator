@@ -1,204 +1,136 @@
-import React, { useEffect, useState } from "react";
-import api from "../api";
+// src/components/Login.jsx
+import React, { useState } from "react";
 import {
-  Button,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Container,
-  TextField,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TablePagination,
+  Container, Typography, TextField, IconButton, InputAdornment, Box
 } from "@mui/material";
+import api from "../api";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { setAuth } from "../redux/slices/authSlice";
+import { SdfButton, SdfIcon } from "@waypoint/react-components";
 
-export default function AMLList() {
-  const [amlList, setAmlList] = useState([]);
-  const [form, setForm] = useState({
-    planNumber: "",
-    status: "",
-    complianceDate: "",
-    comments: "",
-  });
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+export default function Login() {
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const fetchAML = async () => {
-    const res = await api.get("/AML");
-    setAmlList(res.data);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const canSubmit = usernameOrEmail.trim() !== "" && password !== "" && !busy;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    try {
+      setBusy(true);
+      const res = await api.post("/auth/login", {
+        usernameOrEmail,            // ✅ matches backend model
+        password,
+      });
+
+      const { token, roles } = res.data;
+      localStorage.setItem("token", token);
+      localStorage.setItem("roles", JSON.stringify(roles));
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      dispatch(setAuth({ token, roles }));
+
+      alert("Login Successful");
+      if (roles?.includes("Admin")) navigate("/aml");
+      else if (roles?.includes("Manager")) navigate("/trustee");
+      else navigate("/sp");
+    } catch (err) {
+      alert("Login Failed: " + (err.response?.data || err.message));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  useEffect(() => {
-    fetchAML();
-  }, []);
-
-  const handleSave = async () => {
-const payload = {
-  Plan_Number: form.planNumber,
-  Status: form.status,
-  Compliance_Date: form.complianceDate,
-  Comments: form.comments,
-};
-
-if (editId) {
-  await api.put(`/AML/${editId}`, payload);
-} else {
-  await api.post("/AML", payload);
-}
-    fetchAML();
-    setOpen(false);
-    setForm({ planNumber: "", status: "", complianceDate: "", comments: "" });
-    setEditId(null);
+  const onKeyDown = (e) => {
+    if (e.key === "Enter") submit();
   };
-
-  const handleEdit = (aml) => {
-    setForm({
-      planNumber: aml.plan_Number || aml.Plan_Number,
-      status: aml.status || aml.Status,
-      complianceDate: aml.compliance_Date || aml.Compliance_Date,
-      comments: aml.comments || aml.Comments,
-    });
-    setEditId(aml.aml_ID || aml.AML_ID);
-    setOpen(true);
-  };
-
-  const handleDelete = async (id) => {
-    await api.delete(`/AML/${id}`);
-    fetchAML();
-  };
-
-  const filtered = amlList.filter((a) =>
-    (a.plan_Number || a.Plan_Number || "")
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
 
   return (
-    <Container>
-      <h2>AML Records</h2>
-      <sdf-button variant="contained" onClick={() => setOpen(true)}>
-        Add AML
-      </sdf-button>
-      <TextField
-        label="Search by Plan Number"
-        size="small"
-        style={{ margin: "10px" }}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+    <Container maxWidth="sm" sx={{ py: 6 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3, justifyContent: "center" }}>
+        <SdfIcon icon="action-login" />
+        <Typography variant="h5" fontWeight={600}>Login</Typography>
+      </Box>
 
-      <div style={{ maxHeight: "400px", overflow: "auto" }}>
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell>AML_ID</TableCell>
-              <TableCell>Plan Number</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Compliance Date</TableCell>
-              <TableCell>Comments</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filtered.length > 0 ? (
-              filtered
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((a) => (
-                  <TableRow key={a.aml_ID || a.AML_ID}>
-                    <TableCell>{a.aml_ID || a.AML_ID}</TableCell>
-                    <TableCell>{a.plan_Number || a.Plan_Number}</TableCell>
-                    <TableCell>{a.status || a.Status}</TableCell>
-                    <TableCell>
-                      {a.compliance_Date || a.Compliance_Date}
-                    </TableCell>
-                    <TableCell>{a.comments || a.Comments}</TableCell>
-                    <TableCell>
-                      <Button onClick={() => handleEdit(a)}>Edit</Button>
-                      <Button
-                        color="error"
-                        onClick={() => handleDelete(a.aml_ID || a.AML_ID)}
-                      >
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  No records found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25]}
-        component="div"
-        count={filtered.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={(e, newPage) => setPage(newPage)}
-        onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10));
-          setPage(0);
+      <Box
+        sx={{
+          p: 3,
+          borderRadius: 2,
+          bgcolor: "#ffffff",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+          border: "1px solid rgba(0,0,0,0.06)",
         }}
-      />
+      >
+        {/* Username/Email */}
+        <TextField
+          label="Username or Email"
+          fullWidth
+          sx={{ mb: 2 }}
+          value={usernameOrEmail}
+          autoComplete="username"
+          onChange={(e) => setUsernameOrEmail(e.target.value)}
+          onKeyDown={onKeyDown}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SdfIcon icon="contact-card" />
+              </InputAdornment>
+            ),
+          }}
+        />
 
-      {/* Modal Form */}
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>{editId ? "Edit AML" : "Add AML"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label="Plan Number"
-            margin="normal"
-            value={form.planNumber}
-            onChange={(e) => setForm({ ...form, planNumber: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Status"
-            margin="normal"
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Compliance Date"
-            type="date"
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            value={form.complianceDate}
-            onChange={(e) =>
-              setForm({ ...form, complianceDate: e.target.value })
-            }
-          />
-          <TextField
-            fullWidth
-            label="Comments"
-            margin="normal"
-            value={form.comments}
-            onChange={(e) => setForm({ ...form, comments: e.target.value })}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* Password (with show/hide) */}
+        <TextField
+          label="Password"
+          fullWidth
+          sx={{ mb: 2 }}
+          type={showPwd ? "text" : "password"}
+          value={password}
+          autoComplete="current-password"
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={onKeyDown}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label={showPwd ? "hide password" : "show password"}
+                  onClick={() => setShowPwd((s) => !s)}
+                  edge="end"
+                >
+                  <span style={{ display: "inline-flex" }}>
+                    <SdfIcon icon={showPwd ? "action-hide" : "action-show"} />
+                  </span>
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        {/* Submit */}
+        <SdfButton
+          id="login-button"
+          emphasis="primary"
+          action="standard"
+          disabled={!canSubmit}
+          onClick={submit}
+          style={{ width: "100%", justifyContent: "center", gap: 8 }}
+        >
+          <SdfIcon icon="action-login" />
+          Login
+        </SdfButton>
+      </Box>
+
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 2, gap: 1 }}>
+        <SdfIcon icon="action-help" />
+        <Typography variant="body2" color="text.secondary">
+          Use your registered username or email address.
+        </Typography>
+      </Box>
     </Container>
   );
 }
