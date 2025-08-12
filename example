@@ -1,121 +1,204 @@
-import React, { useState } from "react";
-import { Container, Typography, TextField, IconButton, InputAdornment, Box } from "@mui/material";
+import React, { useEffect, useState } from "react";
 import api from "../api";
-import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { setAuth } from "../redux/slices/authSlice";
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Container,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TablePagination,
+} from "@mui/material";
 
-// Waypoint UX
-import { SdfButton, SdfIcon } from "@waypoint/react-components";
+export default function AMLList() {
+  const [amlList, setAmlList] = useState([]);
+  const [form, setForm] = useState({
+    planNumber: "",
+    status: "",
+    complianceDate: "",
+    comments: "",
+  });
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
-export default function Login() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPwd, setShowPwd] = useState(false);
-
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-
-  const handleLogin = async () => {
-    try {
-      const res = await api.post("/auth/login", {
-        usernameOrEmail: username, // ✅ matches backend model
-        password,
-      });
-
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("roles", JSON.stringify(res.data.roles));
-      api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
-      dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
-
-      alert("Login Successful");
-
-      if (res.data.roles.includes("Admin")) navigate("/aml");
-      else if (res.data.roles.includes("Manager")) navigate("/trustee");
-      else navigate("/sp");
-    } catch (err) {
-      alert("Login Failed: " + (err.response?.data || err.message));
-    }
+  const fetchAML = async () => {
+    const res = await api.get("/AML");
+    setAmlList(res.data);
   };
 
+  useEffect(() => {
+    fetchAML();
+  }, []);
+
+  const handleSave = async () => {
+const payload = {
+  Plan_Number: form.planNumber,
+  Status: form.status,
+  Compliance_Date: form.complianceDate,
+  Comments: form.comments,
+};
+
+if (editId) {
+  await api.put(`/AML/${editId}`, payload);
+} else {
+  await api.post("/AML", payload);
+}
+    fetchAML();
+    setOpen(false);
+    setForm({ planNumber: "", status: "", complianceDate: "", comments: "" });
+    setEditId(null);
+  };
+
+  const handleEdit = (aml) => {
+    setForm({
+      planNumber: aml.plan_Number || aml.Plan_Number,
+      status: aml.status || aml.Status,
+      complianceDate: aml.compliance_Date || aml.Compliance_Date,
+      comments: aml.comments || aml.Comments,
+    });
+    setEditId(aml.aml_ID || aml.AML_ID);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/AML/${id}`);
+    fetchAML();
+  };
+
+  const filtered = amlList.filter((a) =>
+    (a.plan_Number || a.Plan_Number || "")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
-      {/* Title row with an icon */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3, justifyContent: "center" }}>
-        <Typography variant="h5" fontWeight={600}>
-          Login
-        </Typography>
-      </Box>
+    <Container>
+      <h2>AML Records</h2>
+      <sdf-button variant="contained" onClick={() => setOpen(true)}>
+        Add AML
+      </sdf-button>
+      <TextField
+        label="Search by Plan Number"
+        size="small"
+        style={{ margin: "10px" }}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
-      {/* Card-ish panel */}
-      <Box
-        sx={{
-          p: 3,
-          borderRadius: 2,
-          bgcolor: "#ffffff",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-          border: "1px solid rgba(0,0,0,0.06)",
+      <div style={{ maxHeight: "400px", overflow: "auto" }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>AML_ID</TableCell>
+              <TableCell>Plan Number</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Compliance Date</TableCell>
+              <TableCell>Comments</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.length > 0 ? (
+              filtered
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((a) => (
+                  <TableRow key={a.aml_ID || a.AML_ID}>
+                    <TableCell>{a.aml_ID || a.AML_ID}</TableCell>
+                    <TableCell>{a.plan_Number || a.Plan_Number}</TableCell>
+                    <TableCell>{a.status || a.Status}</TableCell>
+                    <TableCell>
+                      {a.compliance_Date || a.Compliance_Date}
+                    </TableCell>
+                    <TableCell>{a.comments || a.Comments}</TableCell>
+                    <TableCell>
+                      <Button onClick={() => handleEdit(a)}>Edit</Button>
+                      <Button
+                        color="error"
+                        onClick={() => handleDelete(a.aml_ID || a.AML_ID)}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  No records found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
         }}
-      >
-        {/* Username/Email with Waypoint icon to the left */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-          <SdfIcon icon="action-email" aria-label="email icon" />
+      />
+
+      {/* Modal Form */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{editId ? "Edit AML" : "Add AML"}</DialogTitle>
+        <DialogContent>
           <TextField
-            label="Username or Email"
             fullWidth
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            label="Plan Number"
+            margin="normal"
+            value={form.planNumber}
+            onChange={(e) => setForm({ ...form, planNumber: e.target.value })}
           />
-        </Box>
-
-        {/* Password with show/hide (keeps MUI TextField) + Waypoint icon to the left */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-          <SdfIcon icon={showPwd ? "action-show" : "action-hide"} aria-label="password icon" />
           <TextField
-            label="Password"
             fullWidth
-            type={showPwd ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label={showPwd ? "hide password" : "show password"}
-                    onClick={() => setShowPwd((s) => !s)}
-                    edge="end"
-                  >
-                    {/* purely visual; icon flips already at left, this is to match common UX */}
-                    <span style={{ display: "inline-flex" }}>
-                      <SdfIcon icon={showPwd ? "action-hide" : "action-show"} />
-                    </span>
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
+            label="Status"
+            margin="normal"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
           />
-        </Box>
-
-        {/* Submit with icon inside Waypoint button */}
-        <SdfButton
-          id="login-button"
-          emphasis="primary"
-          action="standard"
-          onClick={handleLogin}
-          style={{ width: "100%", justifyContent: "center", gap: 8 }}
-        >
-          <SdfIcon icon="action-login" />
-          Login
-        </SdfButton>
-      </Box>
-
-      {/* Optional help row */}
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 2, gap: 1 }}>
-        <SdfIcon icon="action-help" />
-        <Typography variant="body2" color="text.secondary">
-          Trouble logging in? Make sure your username or email matches your registered account.
-        </Typography>
-      </Box>
+          <TextField
+            fullWidth
+            label="Compliance Date"
+            type="date"
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+            value={form.complianceDate}
+            onChange={(e) =>
+              setForm({ ...form, complianceDate: e.target.value })
+            }
+          />
+          <TextField
+            fullWidth
+            label="Comments"
+            margin="normal"
+            value={form.comments}
+            onChange={(e) => setForm({ ...form, comments: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
