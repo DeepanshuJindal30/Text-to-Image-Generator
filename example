@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Button, TextField, Container, Typography, Alert } from "@mui/material";
+import { SdfInput, SdfButton } from "@waypoint/react-components";
 import api from "../api"; // axios instance
 import { useNavigate } from "react-router-dom";
 
@@ -21,7 +21,7 @@ export default function Register() {
       return;
     }
 
-    // ✅ Password validation (same as backend)
+    // ✅ Password validation
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
     if (!passwordRegex.test(password)) {
@@ -44,55 +44,72 @@ export default function Register() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 5 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        Register
-      </Typography>
+    <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="bg-white shadow-lg rounded-lg p-8 w-96">
+        <h2 className="text-2xl font-bold mb-6 flex items-center justify-center">
+          <sdf-icon icon="action-add-user" class="mr-2"></sdf-icon>
+          Register
+        </h2>
 
-      {/* Show error message if any */}
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && (
+          <div className="mb-4 text-red-600 bg-red-100 p-2 rounded">
+            {error}
+          </div>
+        )}
 
-      <TextField
-        label="Username"
-        fullWidth
-        margin="normal"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
+        <div className="mb-4 flex items-center gap-2">
+          <sdf-icon icon="action-user"></sdf-icon>
+          <SdfInput
+            label="Username"
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
 
-      <TextField
-        label="Email"
-        fullWidth
-        margin="normal"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
+        <div className="mb-4 flex items-center gap-2">
+          <sdf-icon icon="action-mail"></sdf-icon>
+          <SdfInput
+            label="Email"
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-      <TextField
-        label="Password"
-        type="password"
-        fullWidth
-        margin="normal"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
+        <div className="mb-4 flex items-center gap-2">
+          <sdf-icon icon="action-lock"></sdf-icon>
+          <SdfInput
+            label="Password"
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-      <TextField
-        label="Role (Admin/User)"
-        fullWidth
-        margin="normal"
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-      />
+        <div className="mb-4 flex items-center gap-2">
+          <sdf-icon icon="action-role"></sdf-icon>
+          <SdfInput
+            label="Role (Admin/User)"
+            id="role"
+            type="text"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          />
+        </div>
 
-      <Button
-        variant="contained"
-        fullWidth
-        sx={{ mt: 2, py: 1 }}
-        onClick={handleRegister}
-      >
-        Register
-      </Button>
-    </Container>
+        <SdfButton
+          variant="outlined"
+          fullWidth
+          onClick={handleRegister}
+        >
+          <sdf-icon icon="action-add-user" class="mr-2"></sdf-icon>
+          Register
+        </SdfButton>
+      </div>
+    </div>
   );
 }
