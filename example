@@ -1,137 +1,119 @@
-// cleaner Register.jsx (fewer, purposeful icons)
 import React, { useState } from "react";
-import {
-  Container, Typography, Alert, TextField, MenuItem,
-  Box, IconButton, InputAdornment
-} from "@mui/material";
-import { SdfButton, SdfIcon } from "@waypoint/react-components";
+import { Container, Typography, TextField, IconButton, InputAdornment, Box } from "@mui/material";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { setAuth } from "../redux/slices/authSlice";
 
-export default function Register() {
+// Waypoint UX
+import { SdfButton, SdfIcon } from "@waypoint/react-components";
+
+export default function Login() {
   const [username, setUsername] = useState("");
-  const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
-  const [role, setRole]       = useState("User");
-  const [error, setError]     = useState("");
+
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const handleRegister = async () => {
-    setError("");
-    const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const pwdRx   = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
-
-    if (!emailRx.test(email)) { setError("Please enter a valid email"); return; }
-    if (!pwdRx.test(password)) {
-      setError("Password must include upper, lower, number, special char and be 8+ long.");
-      return;
-    }
-
+  const handleLogin = async () => {
     try {
-      await api.post("/auth/register", { username, email, password, role });
-      alert("User Registered Successfully");
-      navigate("/");
+      const res = await api.post("/auth/login", {
+        usernameOrEmail: username, // ✅ matches backend model
+        password,
+      });
+
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("roles", JSON.stringify(res.data.roles));
+      api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
+      dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
+
+      alert("Login Successful");
+
+      if (res.data.roles.includes("Admin")) navigate("/aml");
+      else if (res.data.roles.includes("Manager")) navigate("/trustee");
+      else navigate("/sp");
     } catch (err) {
-      setError("Registration Failed: " + (err.response?.data || err.message));
+      alert("Login Failed: " + (err.response?.data || err.message));
     }
   };
 
   return (
     <Container maxWidth="sm" sx={{ py: 6 }}>
-      <Box sx={{ display:"flex", alignItems:"center", gap:1, mb:3, justifyContent:"center" }}>
-        <SdfIcon icon="action-add" size="20" />
-        <Typography variant="h5" fontWeight={600}>Create an Account</Typography>
+      {/* Title row with an icon */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3, justifyContent: "center" }}>
+        <Typography variant="h5" fontWeight={600}>
+          Login
+        </Typography>
       </Box>
 
-      <Box sx={{ p:3, borderRadius:2, bgcolor:"#fff", boxShadow:"0 8px 24px rgba(0,0,0,0.06)", border:"1px solid rgba(0,0,0,0.06)" }}>
-        {error && <Alert severity="error" sx={{ mb:2 }}>{error}</Alert>}
+      {/* Card-ish panel */}
+      <Box
+        sx={{
+          p: 3,
+          borderRadius: 2,
+          bgcolor: "#ffffff",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+          border: "1px solid rgba(0,0,0,0.06)",
+        }}
+      >
+        {/* Username/Email with Waypoint icon to the left */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+          <SdfIcon icon="action-email" aria-label="email icon" />
+          <TextField
+            label="Username or Email"
+            fullWidth
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </Box>
 
-        <TextField
-          label="Username"
-          fullWidth
-          sx={{ mb:2 }}
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SdfIcon icon="contact-card" />
-              </InputAdornment>
-            ),
-          }}
-        />
+        {/* Password with show/hide (keeps MUI TextField) + Waypoint icon to the left */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+          <SdfIcon icon={showPwd ? "action-show" : "action-hide"} aria-label="password icon" />
+          <TextField
+            label="Password"
+            fullWidth
+            type={showPwd ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={showPwd ? "hide password" : "show password"}
+                    onClick={() => setShowPwd((s) => !s)}
+                    edge="end"
+                  >
+                    {/* purely visual; icon flips already at left, this is to match common UX */}
+                    <span style={{ display: "inline-flex" }}>
+                      <SdfIcon icon={showPwd ? "action-hide" : "action-show"} />
+                    </span>
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Box>
 
-        <TextField
-          label="Email"
-          fullWidth
-          sx={{ mb:2 }}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SdfIcon icon="action-email" />
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        <TextField
-          label="Password"
-          fullWidth
-          sx={{ mb:2 }}
-          type={showPwd ? "text" : "password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton edge="end" onClick={() => setShowPwd(s => !s)}>
-                  <span style={{ display:"inline-flex" }}>
-                    <SdfIcon icon={showPwd ? "action-hide" : "action-show"} />
-                  </span>
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        <TextField
-          label="Role"
-          fullWidth
-          select
-          sx={{ mb:2 }}
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SdfIcon icon="action-view-settings" />
-              </InputAdornment>
-            ),
-          }}
-        >
-          <MenuItem value="Admin">Admin</MenuItem>
-          <MenuItem value="Manager">Manager</MenuItem>
-          <MenuItem value="User">User</MenuItem>
-        </TextField>
-
+        {/* Submit with icon inside Waypoint button */}
         <SdfButton
-          id="register-button"
+          id="login-button"
           emphasis="primary"
           action="standard"
-          onClick={handleRegister}
-          style={{ width:"100%", justifyContent:"center" }}
+          onClick={handleLogin}
+          style={{ width: "100%", justifyContent: "center", gap: 8 }}
         >
-          Register
+          <SdfIcon icon="action-login" />
+          Login
         </SdfButton>
       </Box>
 
-      <Box sx={{ display:"flex", justifyContent:"center", mt:2, gap:1 }}>
+      {/* Optional help row */}
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 2, gap: 1 }}>
         <SdfIcon icon="action-help" />
         <Typography variant="body2" color="text.secondary">
-          Already have an account? Go back to the login page.
+          Trouble logging in? Make sure your username or email matches your registered account.
         </Typography>
       </Box>
     </Container>
