@@ -1,3 +1,45 @@
+/app.js 
+import { Routes, Route } from "react-router-dom";
+import Login from "./components/Login";
+import AMLList from "./components/AMLList";
+import TrusteeList from "./components/TrusteeList";
+import SPList from "./components/SPList";
+import Register from "./components/Register";
+import Navbar from "./components/NavBar"; // ✅ Import
+
+export default function App() {
+  return (
+    <div>
+      <Navbar /> {/* ✅ Use the dynamic navbar */}
+
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/aml" element={<AMLList />} />
+        <Route path="/trustee" element={<TrusteeList />} />
+        <Route path="/sp" element={<SPList />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </div>
+  );
+}
+
+//api.js
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: "http://localhost:5041/api"
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export default api;
+
+
+/component/navbar.js
 import React from "react";
 import { AppBar, Toolbar, Button, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
@@ -70,26 +112,31 @@ export default function Navbar() {
     </AppBar>
   );
 }
-import { Routes, Route } from "react-router-dom";
-import Login from "./components/Login";
-import AMLList from "./components/AMLList";
-import TrusteeList from "./components/TrusteeList";
-import SPList from "./components/SPList";
-import Register from "./components/Register";
-import Navbar from "./components/NavBar"; // ✅ Import
 
-export default function App() {
-  return (
-    <div>
-      <Navbar /> {/* ✅ Use the dynamic navbar */}
 
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/aml" element={<AMLList />} />
-        <Route path="/trustee" element={<TrusteeList />} />
-        <Route path="/sp" element={<SPList />} />
-        <Route path="/register" element={<Register />} />
-      </Routes>
-    </div>
-  );
-}
+import { createSlice } from "@reduxjs/toolkit";
+
+const authSlice = createSlice({
+  name: "auth",
+  initialState: {
+    isLoggedIn: false,
+    role: null,
+    token: null,
+  },
+  reducers: {
+    setAuth(state, action) {
+      const { token, role } = action.payload;
+      state.isLoggedIn = true;
+      state.token = token;
+      state.role = role;
+    },
+    clearAuth(state) {
+      state.isLoggedIn = false;
+      state.token = null;
+      state.role = null;
+    },
+  },
+});
+
+export const { setAuth, clearAuth } = authSlice.actions; // ✅ Make sure clearAuth is exported
+export default authSlice.reducer;
