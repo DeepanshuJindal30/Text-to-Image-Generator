@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import {
   Table,
@@ -16,9 +15,11 @@ import {
   TablePagination,
   Box,
   Typography,
+  Grid,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { SdfButton, SdfIcon } from "@waypoint/react-components";
+import { SdfButton, SdfIcon, SdfCard, SdfCardHeader, SdfCardFooter } from "@waypoint/react-components";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function AMLList() {
   const [amlList, setAmlList] = useState([]);
@@ -87,12 +88,81 @@ export default function AMLList() {
     fetchAML();
   };
 
-  const filtered = amlList.filter((a) =>
-    (a.plan_Number || a.Plan_Number || "")
-      .toString()
-      .toLowerCase()
-      .includes(search.toLowerCase())
+  const filtered = useMemo(
+    () =>
+      amlList.filter((a) =>
+        (a.plan_Number || a.Plan_Number || "")
+          .toString()
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      ),
+    [amlList, search]
   );
+
+  // ----- Dashboard data (computed from filtered list) -----
+  const { total, compliant, pending, other, statusChart } = useMemo(() => {
+    const totalCount = filtered.length;
+    const statusCounts = filtered.reduce((acc, row) => {
+      const s = (row.status || row.Status || "Unknown").toString().trim();
+      const key =
+        /compliant/i.test(s)
+          ? "Compliant"
+          : /pending/i.test(s)
+          ? "Pending"
+          : s || "Other";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const compliantCount = statusCounts["Compliant"] || 0;
+    const pendingCount = statusCounts["Pending"] || 0;
+    const otherCount = totalCount - compliantCount - pendingCount;
+
+    // Build bar chart data (top 6 statuses by frequency)
+    const chartData = Object.entries(statusCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+
+    return {
+      total: totalCount,
+      compliant: compliantCount,
+      pending: pendingCount,
+      other: otherCount,
+      statusChart: chartData,
+    };
+  }, [filtered]);
+
+  // Export CSV of filtered rows
+  const handleExportCsv = () => {
+    const headers = ["AML_ID", "Plan_Number", "Status", "Compliance_Date", "Comments"];
+    const rows = filtered.map((a) => {
+      const id = a.aml_ID || a.AML_ID || "";
+      const plan = a.plan_Number || a.Plan_Number || "";
+      const status = a.status || a.Status || "";
+      const dateRaw = a.compliance_Date || a.Compliance_Date;
+      const date =
+        typeof dateRaw === "string"
+          ? dateRaw.slice(0, 10)
+          : dateRaw
+          ? new Date(dateRaw).toISOString().slice(0, 10)
+          : "";
+      const comments = a.comments || a.Comments || "";
+      return [id, plan, status, date, comments];
+    });
+
+    const csv =
+      headers.join(",") +
+      "\n" +
+      rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `aml_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -122,6 +192,16 @@ export default function AMLList() {
           />
           <SdfButton
             action="standard"
+            emphasis="secondary"
+            onClick={handleExportCsv}
+            style={{ display: "inline-flex", gap: 6 }}
+            title="Export CSV"
+          >
+            <SdfIcon icon="action-download" />
+            Export
+          </SdfButton>
+          <SdfButton
+            action="standard"
             emphasis="primary"
             onClick={() => setOpen(true)}
             style={{ display: "inline-flex", gap: 8 }}
@@ -139,6 +219,74 @@ export default function AMLList() {
             Logout
           </SdfButton>
         </Box>
+      </Box>
+
+      {/* Mini dashboard */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <SdfCard>
+            <SdfCardHeader title="Total" />
+            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{total}</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#64748b" }}>All filtered records</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <SdfCard>
+            <SdfCardHeader title="Compliant" />
+            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{compliant}</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#22c55e" }}>Good standing</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <SdfCard>
+            <SdfCardHeader title="Pending" />
+            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{pending}</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#eab308" }}>Needs attention</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <SdfCard>
+            <SdfCardHeader title="Other" />
+            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{other}</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#94a3b8" }}>Everything else</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+      </Grid>
+
+      {/* Status mix chart */}
+      <Box
+        sx={{
+          p: 2,
+          mb: 2,
+          borderRadius: 2,
+          bgcolor: "#fff",
+          border: "1px solid #e5e7eb",
+          height: 220,
+        }}
+      >
+        <Typography variant="subtitle1" sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
+          <SdfIcon icon="action-view-reports" />
+          Status Distribution
+        </Typography>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={statusChart}>
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+            <Tooltip />
+            <Bar dataKey="value" />
+          </BarChart>
+        </ResponsiveContainer>
       </Box>
 
       {/* Table */}
@@ -187,6 +335,7 @@ export default function AMLList() {
                             emphasis="secondary"
                             onClick={() => handleEdit(a)}
                             style={{ marginRight: 6, display: "inline-flex", gap: 6, padding: "2px 8px" }}
+                            title="Edit"
                           >
                             <SdfIcon icon="action-edit" />
                             Edit
@@ -197,6 +346,7 @@ export default function AMLList() {
                             emphasis="secondary"
                             onClick={() => handleDelete(id)}
                             style={{ display: "inline-flex", gap: 6, padding: "2px 8px" }}
+                            title="Delete"
                           >
                             <SdfIcon icon="action-delete" />
                             Delete
