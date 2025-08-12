@@ -1,126 +1,165 @@
 
-              <TableCell>Trustee_ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>Plan Number</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filtered.length > 0 ? (
-              filtered
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((t) => (
-                  <TableRow key={t.trustee_ID || t.Trustee_ID}>
-                    <TableCell>{t.trustee_ID || t.Trustee_ID}</TableCell>
-                    <TableCell>{t.name || t.Name}</TableCell>
-                    <TableCell>{t.email || t.Email}</TableCell>
-                    <TableCell>{t.phone || t.Phone}</TableCell>
-                    <TableCell>{t.plan_Number || t.Plan_Number}</TableCell>
-                    <TableCell>
-                      <Button onClick={() => handleEdit(t)}>Edit</Button>
-                      <Button
-                        color="error"
-                        onClick={() =>
-                          handleDelete(t.trustee_ID || t.Trustee_ID)
-                        }
-                      >
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  No records found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+import React, { useState } from "react";
+import { Button, TextField, Container, Typography } from "@mui/material";
+import api from "../api";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { setAuth } from "../redux/slices/authSlice";
+import { SdfButton } from "@waypoint/react-components";
 
-      {/* Pagination */}
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25]}
-        component="div"
-        count={filtered.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={(e, newPage) => setPage(newPage)}
-        onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10));
-          setPage(0);
-        }}
+export default function Login() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const handleLogin = async () => {
+  try {
+    const res = await api.post("/auth/login", { 
+      usernameOrEmail: username,  // ✅ match backend property
+      password 
+    });
+
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("roles", JSON.stringify(res.data.roles));
+
+    api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
+    dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
+
+    alert("Login Successful");
+
+    if (res.data.roles.includes("Admin")) {
+      navigate("/aml");
+    } else if (res.data.roles.includes("Manager")) {
+      navigate("/trustee");
+    } else {
+      navigate("/sp");
+    }
+  } catch (err) {
+    alert("Login Failed: " + (err.response?.data || err.message));
+  }
+};
+
+  return (
+    <Container maxWidth="sm">
+      <Typography variant="h4" gutterBottom>
+        Login
+      </Typography>
+      <TextField
+        label="Username or Email"
+        fullWidth
+        margin="normal"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
       />
-
-      {/* Modal Form */}
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>{editId ? "Edit Trustee" : "Add Trustee"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label="Name"
-            margin="normal"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Email"
-            margin="normal"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Phone"
-            margin="normal"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Plan Number"
-            margin="normal"
-            value={form.planNumber}
-            onChange={(e) =>
-              setForm({ ...form, planNumber: e.target.value })
-            }
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <TextField
+        label="Password"
+        type="password"
+        fullWidth
+        margin="normal"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <SdfButton variant="contained" fullWidth onClick={handleLogin}>
+        Login
+      </SdfButton>
     </Container>
   );
-}
-import { Routes, Route } from "react-router-dom";
-import Login from "./components/Login";
-import AMLList from "./components/AMLList";
-import TrusteeList from "./components/TrusteeList";
-import SPList from "./components/SPList";
-import Register from "./components/Register";
-import Navbar from "./components/NavBar"; // ✅ Import
+}import React, { useState } from "react";
+import { Button, TextField, Container, Typography, Alert } from "@mui/material";
+import api from "../api"; // axios instance
+import { useNavigate } from "react-router-dom";
 
-export default function App() {
+export default function Register() {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("User"); // default role
+  const [error, setError] = useState(""); // error message
+  const navigate = useNavigate();
+
+  const handleRegister = async () => {
+    setError(""); // clear error
+
+    // ✅ Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    // ✅ Password validation (same as backend)
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError(
+        "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+      );
+      return;
+    }
+
+    try {
+      await api.post("/auth/register", { username, email, password, role });
+      alert("User Registered Successfully");
+      navigate("/"); // redirect to login
+    } catch (err) {
+      setError(
+        "Registration Failed: " +
+          (err.response?.data || err.message)
+      );
+    }
+  };
+
   return (
-    <div>
-      <Navbar /> {/* ✅ Use the dynamic navbar */}
+    <Container maxWidth="sm" sx={{ mt: 5 }}>
+      <Typography variant="h4" gutterBottom align="center">
+        Register
+      </Typography>
 
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/aml" element={<AMLList />} />
-        <Route path="/trustee" element={<TrusteeList />} />
-        <Route path="/sp" element={<SPList />} />
-        <Route path="/register" element={<Register />} />
-      </Routes>
-    </div>
+      {/* Show error message if any */}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <TextField
+        label="Username"
+        fullWidth
+        margin="normal"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+
+      <TextField
+        label="Email"
+        fullWidth
+        margin="normal"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
+      <TextField
+        label="Password"
+        type="password"
+        fullWidth
+        margin="normal"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+
+      <TextField
+        label="Role (Admin/User)"
+        fullWidth
+        margin="normal"
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+      />
+
+      <Button
+        variant="contained"
+        fullWidth
+        sx={{ mt: 2, py: 1 }}
+        onClick={handleRegister}
+      >
+        Register
+      </Button>
+    </Container>
   );
 }
