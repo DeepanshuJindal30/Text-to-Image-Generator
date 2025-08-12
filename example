@@ -1,61 +1,75 @@
-import React, { useState } from 'react';
-import { SdfInput, SdfButton } from '@waypoint/react-components';
+import React, { useState } from "react";
+import { SdfInput, SdfButton } from "@waypoint/react-components";
+import api from "../api";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { setAuth } from "../redux/slices/authSlice";
 
-export default function Login({ onLogin }) {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+export default function Login() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const handleChange = (field, value) => {
-    setFormData({
-      ...formData,
-      [field]: value,
-    });
-  };
+  const handleLogin = async () => {
+    try {
+      const res = await api.post("/auth/login", {
+        usernameOrEmail: username,
+        password
+      });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Login data:', formData);
-    if (onLogin) onLogin(formData);
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("roles", JSON.stringify(res.data.roles));
+
+      api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
+      dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
+
+      if (res.data.roles.includes("Admin")) navigate("/aml");
+      else if (res.data.roles.includes("Manager")) navigate("/trustee");
+      else navigate("/sp");
+    } catch (err) {
+      alert("Login Failed: " + (err.response?.data || err.message));
+    }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-center mb-6 text-blue-600">
+    <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="bg-white shadow-lg rounded-lg p-8 w-96">
+        <h2 className="text-2xl font-bold mb-6 flex items-center justify-center">
+          <sdf-icon icon="action-login" class="mr-2"></sdf-icon>
           Dashboard Login
         </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        <div className="mb-4 flex items-center gap-2">
+          <sdf-icon icon="action-user"></sdf-icon>
           <SdfInput
-            label="Email"
-            id="login-email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => handleChange('email', e.target.value)}
+            label="Email or Username"
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
+        </div>
+
+        <div className="mb-4 flex items-center gap-2">
+          <sdf-icon icon="action-lock"></sdf-icon>
           <SdfInput
             label="Password"
-            id="login-password"
+            id="password"
             type="password"
-            value={formData.password}
-            onChange={(e) => handleChange('password', e.target.value)}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
-          <SdfButton
-            type="submit"
-            variant="primary"
-            block
-            style={{
-              backgroundColor: '#1976d2',
-              color: 'white',
-              padding: '0.75rem',
-              fontSize: '1rem',
-              fontWeight: '600',
-            }}
-          >
-            Login
-          </SdfButton>
-        </form>
+        </div>
+
+        <SdfButton
+          variant="outlined" // ✅ Removes blue fill, makes outline button
+          fullWidth
+          onClick={handleLogin}
+        >
+          <sdf-icon icon="action-login" class="mr-2"></sdf-icon>
+          Login
+        </SdfButton>
       </div>
     </div>
   );
