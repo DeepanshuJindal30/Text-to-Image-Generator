@@ -1,76 +1,98 @@
 import React, { useState } from "react";
-import { SdfInput, SdfButton } from "@waypoint/react-components";
-import api from "../api";
+import { Button, TextField, Container, Typography, Alert } from "@mui/material";
+import api from "../api"; // axios instance
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { setAuth } from "../redux/slices/authSlice";
 
-export default function Login() {
+export default function Register() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("User"); // default role
+  const [error, setError] = useState(""); // error message
   const navigate = useNavigate();
-  const dispatch = useDispatch();
 
-  const handleLogin = async () => {
+  const handleRegister = async () => {
+    setError(""); // clear error
+
+    // ✅ Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    // ✅ Password validation (same as backend)
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError(
+        "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+      );
+      return;
+    }
+
     try {
-      const res = await api.post("/auth/login", {
-        usernameOrEmail: username,
-        password
-      });
-
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("roles", JSON.stringify(res.data.roles));
-
-      api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
-      dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
-
-      if (res.data.roles.includes("Admin")) navigate("/aml");
-      else if (res.data.roles.includes("Manager")) navigate("/trustee");
-      else navigate("/sp");
+      await api.post("/auth/register", { username, email, password, role });
+      alert("User Registered Successfully");
+      navigate("/"); // redirect to login
     } catch (err) {
-      alert("Login Failed: " + (err.response?.data || err.message));
+      setError(
+        "Registration Failed: " +
+          (err.response?.data || err.message)
+      );
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-50">
-      <div className="bg-white shadow-lg rounded-lg p-8 w-96">
-        <h2 className="text-2xl font-bold mb-6 flex items-center justify-center">
-          <sdf-icon icon="action-login" class="mr-2"></sdf-icon>
-          Dashboard Login
-        </h2>
+    <Container maxWidth="sm" sx={{ mt: 5 }}>
+      <Typography variant="h4" gutterBottom align="center">
+        Register
+      </Typography>
 
-        <div className="mb-4 flex items-center gap-2">
-          <sdf-icon icon="action-user"></sdf-icon>
-          <SdfInput
-            label="Email or Username"
-            id="username"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </div>
+      {/* Show error message if any */}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <div className="mb-4 flex items-center gap-2">
-          <sdf-icon icon="action-lock"></sdf-icon>
-          <SdfInput
-            label="Password"
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+      <TextField
+        label="Username"
+        fullWidth
+        margin="normal"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
 
-        <SdfButton
-          variant="outlined" // ✅ Removes blue fill, makes outline button
-          fullWidth
-          onClick={handleLogin}
-        >
-          <sdf-icon icon="action-login" class="mr-2"></sdf-icon>
-          Login
-        </SdfButton>
-      </div>
-    </div>
+      <TextField
+        label="Email"
+        fullWidth
+        margin="normal"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
+      <TextField
+        label="Password"
+        type="password"
+        fullWidth
+        margin="normal"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+
+      <TextField
+        label="Role (Admin/User)"
+        fullWidth
+        margin="normal"
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+      />
+
+      <Button
+        variant="contained"
+        fullWidth
+        sx={{ mt: 2, py: 1 }}
+        onClick={handleRegister}
+      >
+        Register
+      </Button>
+    </Container>
   );
 }
