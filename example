@@ -40,63 +40,67 @@ export default function Register() {
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
-      <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-lg">
-        <h2 className="text-3xl font-bold mb-6 flex items-center justify-center text-gray-800">
-          <sdf-icon icon="action-add-user" class="mr-2"></sdf-icon>
-          Create an Account
+      <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-2xl">
+        <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
+          <sdf-icon icon="action-add"></sdf-icon> Create an Account
         </h2>
 
         {error && (
           <div className="mb-4 text-red-600 bg-red-100 p-2 rounded">{error}</div>
         )}
 
-        {/* Row: Username & Role */}
-        <div className="flex gap-4 mb-4">
-          <div className="flex items-center gap-2 flex-1">
-            <sdf-icon icon="action-user"></sdf-icon>
+        {/* Two-column grid */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Username */}
+          <div className="flex items-center gap-2">
+            <sdf-icon icon="contact-card"></sdf-icon>
             <SdfInput
               label="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2 flex-1">
-            <sdf-icon icon="action-role"></sdf-icon>
+
+          {/* Role */}
+          <div className="flex items-center gap-2">
+            <sdf-icon icon="action-edit"></sdf-icon>
             <SdfInput
               label="Role"
               value={role}
               onChange={(e) => setRole(e.target.value)}
             />
           </div>
-        </div>
 
-        {/* Email */}
-        <div className="mb-4 flex items-center gap-2">
-          <sdf-icon icon="action-mail"></sdf-icon>
-          <SdfInput
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
+          {/* Email */}
+          <div className="flex items-center gap-2">
+            <sdf-icon icon="action-email"></sdf-icon>
+            <SdfInput
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-        {/* Password */}
-        <div className="mb-6 flex items-center gap-2">
-          <sdf-icon icon="action-lock"></sdf-icon>
-          <SdfInput
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          {/* Password */}
+          <div className="flex items-center gap-2">
+            <sdf-icon icon="action-lock"></sdf-icon>
+            <SdfInput
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* Button */}
-        <SdfButton variant="outlined" fullWidth onClick={handleRegister}>
-          <sdf-icon icon="action-add-user" class="mr-2"></sdf-icon>
-          Register
-        </SdfButton>
+        <div className="mt-6">
+          <SdfButton variant="outlined" fullWidth onClick={handleRegister}>
+            <sdf-icon icon="action-add" class="mr-2"></sdf-icon>
+            Register
+          </SdfButton>
+        </div>
       </div>
     </div>
   );
