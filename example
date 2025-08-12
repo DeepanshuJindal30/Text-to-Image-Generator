@@ -1,123 +1,98 @@
-// src/components/Login.jsx
 import React, { useState } from "react";
-import { Container, Typography, TextField, IconButton, InputAdornment, Box } from "@mui/material";
-import api from "../api";
+import { Button, TextField, Container, Typography, Alert } from "@mui/material";
+import api from "../api"; // axios instance
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { setAuth } from "../redux/slices/authSlice";
 
-// Waypoint UX
-import { SdfButton, SdfIcon } from "@waypoint/react-components";
-
-export default function Login() {
+export default function Register() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPwd, setShowPwd] = useState(false);
-
+  const [role, setRole] = useState("User"); // default role
+  const [error, setError] = useState(""); // error message
   const navigate = useNavigate();
-  const dispatch = useDispatch();
 
-  const handleLogin = async () => {
+  const handleRegister = async () => {
+    setError(""); // clear error
+
+    // ✅ Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    // ✅ Password validation (same as backend)
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError(
+        "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+      );
+      return;
+    }
+
     try {
-      const res = await api.post("/auth/login", {
-        usernameOrEmail: username, // ✅ matches backend model
-        password,
-      });
-
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("roles", JSON.stringify(res.data.roles));
-      api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
-      dispatch(setAuth({ token: res.data.token, roles: res.data.roles }));
-
-      alert("Login Successful");
-
-      if (res.data.roles.includes("Admin")) navigate("/aml");
-      else if (res.data.roles.includes("Manager")) navigate("/trustee");
-      else navigate("/sp");
+      await api.post("/auth/register", { username, email, password, role });
+      alert("User Registered Successfully");
+      navigate("/"); // redirect to login
     } catch (err) {
-      alert("Login Failed: " + (err.response?.data || err.message));
+      setError(
+        "Registration Failed: " +
+          (err.response?.data || err.message)
+      );
     }
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
-      {/* Title row with an icon */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3, justifyContent: "center" }}>
-        <SdfIcon icon="action-login" size="24" />
-        <Typography variant="h5" fontWeight={600}>
-          Login
-        </Typography>
-      </Box>
+    <Container maxWidth="sm" sx={{ mt: 5 }}>
+      <Typography variant="h4" gutterBottom align="center">
+        Register
+      </Typography>
 
-      {/* Card-ish panel */}
-      <Box
-        sx={{
-          p: 3,
-          borderRadius: 2,
-          bgcolor: "#ffffff",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-          border: "1px solid rgba(0,0,0,0.06)",
-        }}
+      {/* Show error message if any */}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <TextField
+        label="Username"
+        fullWidth
+        margin="normal"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+
+      <TextField
+        label="Email"
+        fullWidth
+        margin="normal"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
+      <TextField
+        label="Password"
+        type="password"
+        fullWidth
+        margin="normal"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+
+      <TextField
+        label="Role (Admin/User)"
+        fullWidth
+        margin="normal"
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+      />
+
+      <Button
+        variant="contained"
+        fullWidth
+        sx={{ mt: 2, py: 1 }}
+        onClick={handleRegister}
       >
-        {/* Username/Email with Waypoint icon to the left */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-          <SdfIcon icon="action-email" aria-label="email icon" />
-          <TextField
-            label="Username or Email"
-            fullWidth
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </Box>
-
-        {/* Password with show/hide (keeps MUI TextField) + Waypoint icon to the left */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-          <SdfIcon icon={showPwd ? "action-show" : "action-hide"} aria-label="password icon" />
-          <TextField
-            label="Password"
-            fullWidth
-            type={showPwd ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label={showPwd ? "hide password" : "show password"}
-                    onClick={() => setShowPwd((s) => !s)}
-                    edge="end"
-                  >
-                    {/* purely visual; icon flips already at left, this is to match common UX */}
-                    <span style={{ display: "inline-flex" }}>
-                      <SdfIcon icon={showPwd ? "action-hide" : "action-show"} />
-                    </span>
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Box>
-
-        {/* Submit with icon inside Waypoint button */}
-        <SdfButton
-          id="login-button"
-          emphasis="primary"
-          action="standard"
-          onClick={handleLogin}
-          style={{ width: "100%", justifyContent: "center", gap: 8 }}
-        >
-          <SdfIcon icon="action-login" />
-          Login
-        </SdfButton>
-      </Box>
-
-      {/* Optional help row */}
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 2, gap: 1 }}>
-        <SdfIcon icon="action-help" />
-        <Typography variant="body2" color="text.secondary">
-          Trouble logging in? Make sure your username or email matches your registered account.
-        </Typography>
-      </Box>
+        Register
+      </Button>
     </Container>
   );
 }
