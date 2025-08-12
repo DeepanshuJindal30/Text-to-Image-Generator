@@ -1,5 +1,5 @@
 // src/components/SPList.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import {
   Table,
@@ -16,9 +16,17 @@ import {
   TablePagination,
   Box,
   Typography,
+  Grid,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { SdfButton, SdfIcon } from "@waypoint/react-components";
+import {
+  SdfButton,
+  SdfIcon,
+  SdfCard,
+  SdfCardHeader,
+  SdfCardFooter,
+} from "@waypoint/react-components";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 export default function SPList() {
   const [spList, setSpList] = useState([]);
@@ -33,7 +41,7 @@ export default function SPList() {
 
   const fetchSP = async () => {
     const res = await api.get("/sp");
-    setSpList(res.data);
+    setSpList(res.data || []);
   };
 
   useEffect(() => {
@@ -80,9 +88,87 @@ export default function SPList() {
     fetchSP();
   };
 
-  const filtered = spList.filter((sp) =>
-    (sp.name || sp.Name || "").toString().toLowerCase().includes(search.toLowerCase())
+  // Filter (client-side) by Name
+  const filtered = useMemo(
+    () =>
+      spList.filter((sp) =>
+        (sp.name || sp.Name || "").toString().toLowerCase().includes(search.toLowerCase())
+      ),
+    [spList, search]
   );
+
+  // ------- Dashboard metrics + chart data -------
+  const { total, uniqueServiceTypes, uniqueTrustees, linkedPct, topServiceType, chartData } =
+    useMemo(() => {
+      const total = filtered.length;
+
+      const serviceSet = new Set();
+      const trusteeSet = new Set();
+      let linked = 0;
+
+      const svcCounts = filtered.reduce((acc, sp) => {
+        const svc = (sp.service_Type || sp.Service_Type || "Unknown").toString().trim() || "Unknown";
+        serviceSet.add(svc);
+        const tr = sp.trustee_ID || sp.Trustee_ID;
+        if (tr) {
+          trusteeSet.add(tr);
+          linked += 1;
+        }
+        acc[svc] = (acc[svc] || 0) + 1;
+        return acc;
+      }, {});
+
+      const uniqueServiceTypes = serviceSet.size;
+      const uniqueTrustees = trusteeSet.size;
+      const linkedPct = total ? Math.round((linked / total) * 100) : 0;
+
+      const entries = Object.entries(svcCounts)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      const topServiceType = entries[0]?.name || "-";
+      const chartData = entries.slice(0, 10);
+
+      return { total, uniqueServiceTypes, uniqueTrustees, linkedPct, topServiceType, chartData };
+    }, [filtered]);
+
+  // Export current filtered view to CSV
+  const handleExportCsv = () => {
+    const headers = ["SP_ID", "Name", "Service_Type", "Trustee_ID"];
+    const rows = filtered.map((sp) => [
+      sp.sp_ID || sp.SP_ID || "",
+      sp.name || sp.Name || "",
+      sp.service_Type || sp.Service_Type || "",
+      sp.trustee_ID || sp.Trustee_ID || "",
+    ]);
+
+    const csv =
+      headers.join(",") +
+      "\n" +
+      rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `service_providers_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Distinct bar colors
+  const BAR_COLORS = [
+    "#2563eb", // blue
+    "#22c55e", // green
+    "#eab308", // amber
+    "#ef4444", // red
+    "#a855f7", // purple
+    "#06b6d4", // cyan
+    "#f97316", // orange
+    "#84cc16", // lime
+    "#f43f5e", // rose
+    "#14b8a6", // teal
+  ];
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -112,6 +198,16 @@ export default function SPList() {
           />
           <SdfButton
             action="standard"
+            emphasis="secondary"
+            onClick={handleExportCsv}
+            style={{ display: "inline-flex", gap: 6 }}
+            title="Export CSV"
+          >
+            <SdfIcon icon="action-download" />
+            Export
+          </SdfButton>
+          <SdfButton
+            action="standard"
             emphasis="primary"
             onClick={() => setOpen(true)}
             style={{ display: "inline-flex", gap: 8 }}
@@ -129,6 +225,84 @@ export default function SPList() {
             Logout
           </SdfButton>
         </Box>
+      </Box>
+
+      {/* Mini dashboard */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <SdfCard>
+            <SdfCardHeader title="Total SPs" />
+            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{total}</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#64748b" }}>Filtered results</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <SdfCard>
+            <SdfCardHeader title="Service Types" />
+            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{uniqueServiceTypes}</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#06b6d4" }}>Unique values</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <SdfCard>
+            <SdfCardHeader title="Unique Trustees" />
+            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{uniqueTrustees}</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#a855f7" }}>Linked trustees</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <SdfCard>
+            <SdfCardHeader title="Linked to Trustee" />
+            <Box sx={{ p: 2, fontSize: 28, fontWeight: 700 }}>{linkedPct}%</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#22c55e" }}>Have Trustee_ID</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <SdfCard>
+            <SdfCardHeader title="Top Service Type" />
+            <Box sx={{ p: 2, fontSize: 20, fontWeight: 700 }}>{topServiceType}</Box>
+            <SdfCardFooter>
+              <Box sx={{ p: 2, pt: 0, color: "#f97316" }}>Most common</Box>
+            </SdfCardFooter>
+          </SdfCard>
+        </Grid>
+      </Grid>
+
+      {/* Chart: SPs per Service Type */}
+      <Box
+        sx={{
+          p: 2,
+          mb: 2,
+          borderRadius: 2,
+          bgcolor: "#fff",
+          border: "1px solid #e5e7eb",
+          height: 220,
+        }}
+      >
+        <Typography variant="subtitle1" sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
+          <SdfIcon icon="action-view-reports" />
+          SPs per Service Type
+        </Typography>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={chartData}>
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+            <Tooltip />
+            <Bar dataKey="value">
+              {chartData.map((entry, idx) => (
+                <Cell key={`cell-${entry.name}`} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </Box>
 
       {/* Table */}
