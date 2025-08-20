@@ -1,31 +1,38 @@
-Here’s the short professional update including those points:
+Perfect 👍
+Here’s a detailed table of all the bugs you faced, why they happened, and how you solved them:
 
 
 ---
 
-Bugs fixed & improvements:
+Bug / Issue	Why it Happened	How It Was Solved
 
-Replaced .map() with .forEach() where return value was not used (to avoid unnecessary array creation).
-
-Replaced .filter() with .find() when only the first matching element was required (more efficient).
-
-Fixed missing/incorrect return statements in functions.
-
-Removed unused variable (backToCopy).
-
-Changed let → const where reassignment not needed (immutability & clarity).
-
-Used strict equality (===, !==) instead of loose (==, !=) to avoid type coercion bugs.
-
-Corrected JSX parsing issues (mismatched tags/brackets).
-
-Resolved Sonar code quality issues (readability, maintainability, performance).
+ErrorMessage: new Array()	Using new Array() is less readable and can be confusing (new Array(5) creates empty slots, not [5]).	Replaced with ErrorMessage: [] → clearer, avoids hidden behavior.
+map() used instead of forEach()	.map() always creates a new array, but you weren’t using the return value → wasted memory.	Changed .map() to .forEach() where only iteration was needed.
+filter() used instead of find()	.filter() returns an array of all matches, but you only needed the first match.	Changed .filter() to .find() → more efficient and clear.
+Missing return in function	In callbacks, not returning a value triggered Sonar warning: “Expected to return a value”.	Added proper return where needed or changed to forEach() if no return was expected.
+Unused variable (backToCopy)	Variable was assigned but never used → Sonar warning.	Removed it since it served no purpose.
+let used instead of const	Sonar flagged reassignable variables as a risk where reassignment wasn’t happening.	Replaced let with const where the variable was not reassigned → improves readability & immutability.
+Loose equality (==, !=) used	Loose equality allows type coercion ("5" == 5 is true), which can cause unexpected bugs.	Changed to strict equality (===, !==) to ensure both value & type match.
+JSX Parsing error (Unexpected token)	Caused by mismatched JSX tags, missing braces {}, or duplicate if conditions.	Fixed by properly closing <div>...</div>, correcting ternary operators, and cleaning syntax.
+Radix not specified in parseInt	Sonar bug: using parseInt without radix may misinterpret numbers with leading 0.	Fixed by adding radix → parseInt(value, 10).
+Unused return inside .forEach()	Returning inside .forEach() does nothing, confused Sonar.	Removed the return statements from .forEach().
+Function block formatting issues	Some extra/missing braces and line breaks in JSX/JS blocks.	Reformatted code, ensured correct { } placement.
 
 
 
 ---
 
-👉 This is concise, professional, and shows both the issues and why changes were made.
+✅ Outcome:
 
-Do you want me to also write a one-liner explanation for each change (why it improves functionality/quality) so you can keep it ready if your manager asks further?
+All Sonar bugs resolved.
+
+Code is now more readable, efficient, and maintainable.
+
+Functionality remains unchanged.
+
+
+
+---
+
+Would you like me to also make a very short 4–5 bullet version of this (for your manager), while you keep this detailed one for yourself?
 
