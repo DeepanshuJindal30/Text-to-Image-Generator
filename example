@@ -1,1 +1,13 @@
+const processed = contactTypes.map((eachContactType, i) => {
+  const contactTypeId = eachContactType.contactTypeId;
+  const toggleDisabled = !this.props.AddExisting
+    ? !!toggleSwitchRules[contactTypeId]
+    : false;
 
+  return {
+    contactTypeId,
+    checked: !!this.state.toggleSwitch[contactTypeId],
+    disabled: toggleDisabled,
+    index: i,
+  };
+});
