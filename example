@@ -1,164 +1,185 @@
-import Constants from "../../utils/constants";
-import util from "../../utils/util";
+import Constants from '../../utils/constants';
+import util from '../../utils/util';
 
 class HandleContactForUpdateWithAddExisting {
-  createContactObject(contactObject, contactdelete, selectedContactId) {
-    const mandatoryContactList = Constants.MANDATORY_CONTACT_TYPES;
-    let isAdmin1ToDelete = false;
-    let admin1ContactToDelete = "";
+    
+    createContactObject(contactObject, contactdelete, selectedContactId) {
+        let mandatoryContactList = Constants.MANDATORY_CONTACT_TYPES;
+        let isAdmin1ToDelete = false;
+        let admin1ContactToDelete = '';
+        
+        contactdelete.contacts.map(function (localContact) {
+                    if (util.replaceNullorEmpty(localContact.contactType).toUpperCase() === Constants.CONTACT_TYPES_MANDATORY_RULE.ADMIN1) {
+                        isAdmin1ToDelete = true;
+                        admin1ContactToDelete = localContact.contactId;
+                    }
+                })
+                
+        let contactTypesToDelete = [];
 
-    // ✅ FIXED: .map → .forEach (side-effects only)
-    (contactdelete?.contacts ?? []).forEach((localContact) => {
-      const type = util
-        .replaceNullorEmpty(localContact?.contactType)
-        .toUpperCase();
-      if (type === Constants.CONTACT_TYPES_MANDATORY_RULE.ADMIN1) {
-        isAdmin1ToDelete = true;
-        admin1ContactToDelete = localContact?.contactId ?? "";
-      }
-    });
-
-    const contactTypesToDelete = (contactdelete?.contacts ?? []).map((c) =>
-      util.replaceNullorEmpty(c?.contactType).toUpperCase()
-    );
-
-    const mandatoryContactTypesToDelete = contactTypesToDelete.filter((t) =>
-      mandatoryContactList.includes(t)
-    );
-
-    const contactToCopy = contactObject;
-
-    // In case of ADMIN1 deletion find out if we are replacing it
-    let DoesReplaceWithAdminSecondaryOrAdditional = false;
-    let contactToDeleteWithAdminSecondaryOrAdditional = "";
-    if (isAdmin1ToDelete) {
-      (contactToCopy?.contacts ?? []).forEach((c) => {
-        const contType = util.replaceNullorEmpty(c?.contactType).toUpperCase();
-        if (
-          contType === Constants.CONTACT_TYPES_OTHER_RULE.ADMIN2 ||
-          contType === Constants.CONTACT_TYPES_OTHER_RULE.ADMINOTHER
-        ) {
-          DoesReplaceWithAdminSecondaryOrAdditional = true;
-          contactToDeleteWithAdminSecondaryOrAdditional = c?.contactId ?? "";
+        for (const key in contactdelete.contacts) {
+            let localContactTypeTodelete = util.replaceNullorEmpty(contactdelete.contacts[key].contactType).toUpperCase();
+            contactTypesToDelete.push(localContactTypeTodelete);
         }
-      });
+
+        let mandatoryContactTypesToDelete = [];
+
+        contactTypesToDelete.forEach(function (localContact) {
+          
+            if (mandatoryContactList.indexOf(localContact) !== -1) {
+                mandatoryContactTypesToDelete.push(localContact);
+            }
+        });
+       
+ 
+        let contactToCopy = contactObject;
+        
+      
+
+        // In case of ADMIN1 deletion find out if we are replacing it with Admin-secondary or Admin-Additional
+        let DoesReplaceWithAdminSecondaryOrAdditional = false;
+        let contactToDeleteWithAdminSecondaryOrAdditional = '';
+        if (isAdmin1ToDelete) {
+            for (const key in contactToCopy.contacts) {
+                let contType = util.replaceNullorEmpty(contactToCopy.contacts[key].contactType).toUpperCase();
+                if (contType === Constants.CONTACT_TYPES_OTHER_RULE.ADMIN2 || contType === Constants.CONTACT_TYPES_OTHER_RULE.ADMINOTHER) {
+                    DoesReplaceWithAdminSecondaryOrAdditional = true;
+                    contactToDeleteWithAdminSecondaryOrAdditional = contactToCopy.contacts[key].contactId;
+                }
+            }
+
+        }
+       
+        let Contacts = [];
+        for (let index3 in mandatoryContactTypesToDelete) {
+            let c = {
+                firstName: contactToCopy.firstName,
+                lastName:contactToCopy.lastName,
+                middleInitial:contactToCopy.middleInitial,
+                mobileNumber: util.RemovePhoneNumberFormat(contactToCopy.mobileNumber),
+                phoneExt:contactToCopy.phoneExt,
+                phoneNumber: util.RemovePhoneNumberFormat(contactToCopy.phoneNumber),
+                city: contactToCopy.city,
+                state:contactToCopy.state,
+                countryName:contactToCopy.countryName,
+                title:contactToCopy.title,
+                workEmail:contactToCopy.workEmail,
+                zip:contactToCopy.zip,
+                fax:contactToCopy.fax,
+                addressLine1:contactToCopy.addressLine1,
+                addressLine2:contactToCopy.addressLine2,
+                legalFirstName : contactToCopy.legalFirstName,
+                legalLastName : contactToCopy.legalLastName,
+                homeAddress1 : contactToCopy.homeAddress1,
+                homeAddress2 : contactToCopy.homeAddress2,
+                homeCity : contactToCopy.homeCity,
+                homeCountryName : contactToCopy.homeCountryName,
+                homeDateOfBirth : contactToCopy.homeDateOfBirth,
+                homeSocialSecurityNumber : contactToCopy.homeSocialSecurityNumber,
+                homeState : contactToCopy.homeState,
+                homeZip : contactToCopy.homeZip,
+                companyName: contactToCopy.companyName
+            }
+            
+            
+            // let c = Object.assign({}, contactToCopy.contacts[0]);
+            //remove company name field for Client Contacts
+            delete c.companyName;
+            let localContactToDelete = contactdelete.contacts.filter((conta) => {
+                if (conta.contactType === mandatoryContactTypesToDelete[index3]) {
+                    return conta;
+                }
+                return null;
+            });
+           
+            let oldContact = Object.assign({}, localContactToDelete[0]);
+          
+            if (isAdmin1ToDelete && DoesReplaceWithAdminSecondaryOrAdditional && mandatoryContactTypesToDelete[index3] === "ADMIN1") {
+                oldContact.operation = Constants.OPERATION.Delete;
+                oldContact.contactId = admin1ContactToDelete;
+               
+                Contacts.push(util.cleanArray(oldContact));
+
+                //update new contact with existing contacttype
+                c.contactType = mandatoryContactTypesToDelete[index3];
+                c.contactId = contactToDeleteWithAdminSecondaryOrAdditional;
+                c.OverrideFirstName = true;
+                c.operation = Constants.OPERATION.Update;
+                
+                Contacts.push(util.cleanArray(c));
+
+            } else {
+                //update old contact with all data from new contact                 
+                c.contactType = mandatoryContactTypesToDelete[index3];
+                c.contactId = oldContact.contactId;
+                c.OverrideFirstName = true;
+                c.operation = Constants.OPERATION.Update;
+               
+                Contacts.push(util.cleanArray(c));
+            }
+        }
+        //delete which are non mendatory
+        for (let index1 in contactdelete.contacts) {
+            
+            let oldContact = Object.assign({}, contactdelete.contacts[index1]);
+           
+            if (mandatoryContactList.indexOf(util.replaceNullorEmpty(oldContact.contactType).toUpperCase()) === -1) {
+               
+                oldContact.operation = Constants.OPERATION.Delete;
+                Contacts.push(util.cleanArray(oldContact));
+                
+            }
+        }
+
+        // let backToCopy;
+        // if(contactTypesToDelete.length>0 && contactTypesToDelete.includes("EXECUTIVE")){
+        //     backToCopy = contactObject.filter((c) => {
+        //         if (c.contactType === "EXECUTIVE")
+        //             return c;
+        //     });
+        // }
+        let ContactsTemp =[];
+        Contacts.forEach((contact) => {
+            let c = this.ProvideExecutiveInfo(contact);
+            ContactsTemp.push(util.cleanArray(c))
+        })  
+        return ContactsTemp;
     }
 
-    const Contacts = [];
-
-    // loop through mandatory contact types to delete
-    mandatoryContactTypesToDelete.forEach((type) => {
-      const c = {
-        firstName: contactToCopy.firstName,
-        lastName: contactToCopy.lastName,
-        middleInitial: contactToCopy.middleInitial,
-        mobileNumber: util.RemovePhoneNumberFormat(contactToCopy.mobileNumber),
-        phoneExt: contactToCopy.phoneExt,
-        phoneNumber: util.RemovePhoneNumberFormat(contactToCopy.phoneNumber),
-        city: contactToCopy.city,
-        state: contactToCopy.state,
-        countryName: contactToCopy.countryName,
-        title: contactToCopy.title,
-        workEmail: contactToCopy.workEmail,
-        zip: contactToCopy.zip,
-        fax: contactToCopy.fax,
-        addressLine1: contactToCopy.addressLine1,
-        addressLine2: contactToCopy.addressLine2,
-        legalFirstName: contactToCopy.legalFirstName,
-        legalLastName: contactToCopy.legalLastName,
-        homeAddress1: contactToCopy.homeAddress1,
-        homeAddress2: contactToCopy.homeAddress2,
-        homeCity: contactToCopy.homeCity,
-        homeCountryName: contactToCopy.homeCountryName,
-        homeDateOfBirth: contactToCopy.homeDateOfBirth,
-        homeSocialSecurityNumber: contactToCopy.homeSocialSecurityNumber,
-        homeState: contactToCopy.homeState,
-        homeZip: contactToCopy.homeZip,
-        companyName: contactToCopy.companyName,
-      };
-
-      delete c.companyName; // remove companyName for client contacts
-
-      const localContactToDelete = (contactdelete?.contacts ?? []).filter(
-        (conta) =>
-          util.replaceNullorEmpty(conta?.contactType).toUpperCase() === type
-      );
-
-      const oldContact = { ...(localContactToDelete[0] ?? {}) };
-
-      if (
-        isAdmin1ToDelete &&
-        DoesReplaceWithAdminSecondaryOrAdditional &&
-        type === "ADMIN1"
-      ) {
-        // Delete old admin1
-        oldContact.operation = Constants.OPERATION.Delete;
-        oldContact.contactId = admin1ContactToDelete;
-        Contacts.push(util.cleanArray(oldContact));
-
-        // Update new contact with Admin2/AdminOther
-        c.contactType = type;
-        c.contactId = contactToDeleteWithAdminSecondaryOrAdditional;
-        c.OverrideFirstName = true;
-        c.operation = Constants.OPERATION.Update;
-        Contacts.push(util.cleanArray(c));
-      } else {
-        // Update old contact with data from new one
-        c.contactType = type;
-        c.contactId = oldContact.contactId;
-        c.OverrideFirstName = true;
-        c.operation = Constants.OPERATION.Update;
-        Contacts.push(util.cleanArray(c));
-      }
-    });
-
-    // Delete non-mandatory contacts
-    (contactdelete?.contacts ?? []).forEach((old) => {
-      const type = util.replaceNullorEmpty(old?.contactType).toUpperCase();
-      if (!mandatoryContactList.includes(type)) {
-        const oldContact = { ...old, operation: Constants.OPERATION.Delete };
-        Contacts.push(util.cleanArray(oldContact));
-      }
-    });
-
-    // Final pass: clean & enrich executive info
-    const ContactsTemp = Contacts.map((contact) =>
-      util.cleanArray(this.ProvideExecutiveInfo(contact))
-    );
-
-    return ContactsTemp;
-  }
-
-  ProvideExecutiveInfo(c) {
-    if (c.contactType !== "EXECUTIVE") {
-      delete c.legalFirstName;
-      delete c.legalLastName;
-      delete c.homeSocialSecurityNumber;
-      delete c.homeDateOfBirth;
-      delete c.homeAddress1;
-      delete c.homeAddress2;
-      delete c.homeCity;
-      delete c.homeState;
-      delete c.homeZip;
-      delete c.homeCountryName;
+    ProvideExecutiveInfo(c) {
+        if(c.contactType !== "EXECUTIVE"){                   
+            delete c.legalFirstName;
+            delete c.legalLastName;
+            delete c.homeSocialSecurityNumber;
+            delete c.homeDateOfBirth;
+            delete c.homeAddress1;
+            delete c.homeAddress2;
+            delete c.homeCity;
+            delete c.homeState;
+            delete c.homeZip;
+            delete c.homeCountryName;
+        }        
+        return c;
     }
-    return c;
-  }
+    deleteContactObject(contactObject, contactKeyToDelete) {
+       
+        const keyToFilter = contactKeyToDelete;
+        let contactListToDelete = contactObject.filter((c) => {
+            if (c.FilterKey === keyToFilter) {
+                return c;
+            }
+            return null;
+        });
+   
+        let Contacts = [];
+        for (let index2 in contactListToDelete[0].contacts) {
+            let oldContact = Object.assign({}, contactListToDelete[0].contacts[index2]);
+            oldContact.operation = Constants.OPERATION.Delete;
+            Contacts.push(util.cleanArray(oldContact));
+        }
 
-  deleteContactObject(contactObject, contactKeyToDelete) {
-    const keyToFilter = contactKeyToDelete;
-    const contactListToDelete = contactObject.filter(
-      (c) => c.FilterKey === keyToFilter
-    );
+        return Contacts;
+    }
 
-    const Contacts = [];
-    (contactListToDelete[0]?.contacts ?? []).forEach((c) => {
-      const oldContact = { ...c, operation: Constants.OPERATION.Delete };
-      Contacts.push(util.cleanArray(oldContact));
-    });
-
-    return Contacts;
-  }
 }
-
 export default new HandleContactForUpdateWithAddExisting();
