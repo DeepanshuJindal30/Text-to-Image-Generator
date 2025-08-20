@@ -1,15 +1,31 @@
-// AFTER (lint-safe, same functionality)
-const contactListToDelete = contactObject.filter(function (c) {
-  if (c.FilterKey === keyToFilter) {
-    // ✅ use forEach for side-effects
-    (Array.isArray(c.contacts) ? c.contacts : []).forEach(function (localContact) {
-      const type = util.replaceNullorEmpty(localContact && localContact.contactType).toUpperCase();
-      if (type === Constants.CONTACT_TYPES_MANDATORY_RULE.ADMIN1) {
-        isAdmin1ToDelete = true;
-        admin1ContactToDelete = localContact && localContact.contactId;
-      }
-    });
-    return true;    // ✅ explicit boolean for filter
-  }
-  return false;     // ✅ explicit boolean for filter
-});
+Here’s the short professional update including those points:
+
+
+---
+
+Bugs fixed & improvements:
+
+Replaced .map() with .forEach() where return value was not used (to avoid unnecessary array creation).
+
+Replaced .filter() with .find() when only the first matching element was required (more efficient).
+
+Fixed missing/incorrect return statements in functions.
+
+Removed unused variable (backToCopy).
+
+Changed let → const where reassignment not needed (immutability & clarity).
+
+Used strict equality (===, !==) instead of loose (==, !=) to avoid type coercion bugs.
+
+Corrected JSX parsing issues (mismatched tags/brackets).
+
+Resolved Sonar code quality issues (readability, maintainability, performance).
+
+
+
+---
+
+👉 This is concise, professional, and shows both the issues and why changes were made.
+
+Do you want me to also write a one-liner explanation for each change (why it improves functionality/quality) so you can keep it ready if your manager asks further?
+
