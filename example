@@ -1,31 +1,34 @@
-{contactTypes.map((eachContactType, i) => {
-  // ---- compute everything first
-  const contactTypeId = eachContactType.contactTypeId;
-  const contactTypeName = eachContactType.contactTypeName;
-  const toggleSwitch = this.state.toggleSwitch;
-  const toggleSwitchRules = this.state.toggleSwitchRules;
+ <div style={styles.toggleSwitchSecDiv} id="contactTypeDivId">                  
+         {        
+         contactTypes
+         .map( 
+             (eachContactType, i) =>{    
+             let contactTypeId = eachContactType.contactTypeId;
+             let contactTypeSwitch = this.state.toggleSwitch;                        
+             let contactTypeSwitchRule = toggleSwitchRules; 
+             let toggleDisabled = true
+             if(!this.props.AddExisting){
+                 toggleDisabled=contactTypeSwitchRule[contactTypeId]
+                 }
+                 return (<div key={i}>
+                     {contactTypeId} </div>
+                 );
 
-  // decide disabled state
-  const toggleDisabled = !this.props.AddExisting
-    ? !!toggleSwitchRules[contactTypeId]
-    : false;
-
-  // (optional) skip certain roles
-  // if ([Constants.ROLESREGION.AGENTBROKER, Constants.ROLESREGION.RIA].includes(contactTypeId)) {
-  //   return null; // returning null is fine in React to render nothing
-  // }
-
-  // ---- now RETURN JSX and end the function
-  return (
-    <div key={contactTypeId ?? i} style={styles.toggleSwitchDiv}>
-      <ToggleSwitch
-        key={contactTypeId}
-        label={contactTypeName}
-        valuePath={contactTypeId}
-        disabled={toggleDisabled}
-        checked={!!toggleSwitch[contactTypeId]}
-        onValueChange={(val) => this.handleToggleValue(val, contactTypeId)}
-      />
-    </div>
-  );
-})}
+             //SBSRS-87253 - Removing FA and RIA toggle fields in ADD/EDIT option for partner contacts
+             if(contactTypeId !== Constants.ROLESREGION.AGENTBROKER && contactTypeId !== Constants.ROLESREGION.AGENTBROKER2 && contactTypeId !== Constants.ROLESREGION.AGENTBROKER3
+                 && contactTypeId !== Constants.ROLESREGION.RIA  && contactTypeId !== Constants.ROLESREGION.RIA_SECONDARY && contactTypeId !== Constants.ROLESREGION.RIA2)
+             {       
+                 return   (  
+                     <div style={styles.toggleSwitchDiv}  key={i} >   
+                     <ToggleSwitch 
+                     label={eachContactType.contactTypeName}
+                     value={contactTypeSwitch[contactTypeId]}                                     
+                     valuePath={ contactTypeId}
+                     isDisabled={toggleDisabled}
+                     onValueChange={(e) => this.handleToggleValue(e,contactTypeId) }
+                     />                   
+                     </div>               
+                 );//close return                                      
+             }
+             })//close map
+             }
