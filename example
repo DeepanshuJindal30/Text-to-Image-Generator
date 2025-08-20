@@ -1,37 +1,287 @@
-<div style={styles.toggleSwitchSecDiv} id="contactTypeDivId">
-  {contactTypes.map((eachContactType, i) => {
-    const contactTypeId = eachContactType.contactTypeId;
-    const contactTypeSwitch = this.state.toggleSwitch;
-    const contactTypeSwitchRule = this.state.toggleSwitchRules || toggleSwitchRules; // pick where you store it
+import  apiManager  from '../../utils/api/apiManager';
+import  apiConfig  from '../../utils/api/apiConfig';
+import config from "../../config";
+import HandleContactObject from '../UserInterfaceLogic/handleContactObjects'
+import HandleContactForEdit from '../UserInterfaceLogic/HandleContactForEdit'
+import HandleContactAddToNew from '../UserInterfaceLogic/HandleContactAddToNew'
+import HandleContactForUpdateWithExisting from '../UserInterfaceLogic/HandleContactForUpdateWithExisting';
+import HandleContactForEditWithExisting from '../UserInterfaceLogic/HandleContactForEditWithExisting';
+import HandleContactForUpdateWithAddExisting from '../UserInterfaceLogic/HandleContactForUpdateWithAddExisting';
+import  * as ActionCreators  from './ActionCreators';
+import Constants from '../../utils/constants';
+import Utils from '../../utils/util';
+import api from  "../../config/client";
 
-    // compute disabled state
-    const toggleDisabled = !this.props.AddExisting
-      ? !!contactTypeSwitchRule[contactTypeId]
-      : false;
 
-    // skip these roles entirely
-    if (
-      contactTypeId === Constants.ROLESREGION.AGENTBROKER ||
-      contactTypeId === Constants.ROLESREGION.AGENTBROKER2 ||
-      contactTypeId === Constants.ROLESREGION.AGENTBROKER3 ||
-      contactTypeId === Constants.ROLESREGION.RIA ||
-      contactTypeId === Constants.ROLESREGION.RIA_SECONDARY ||
-      contactTypeId === Constants.ROLESREGION.RIA2
-    ) {
-      return null; // valid return for React (renders nothing)
+export function editContacts(userInfo, Contacts,contactCategory){  
+  let ContactArray = HandleContactForEdit.createContactObject(Contacts,contactCategory);
+
+  return UpdateContacts (userInfo,config.AppConfigStore.basePathAPI + apiConfig.contactsAPI.updateContacts ,
+     ActionCreators.editContactSuccess,ActionCreators.editContactFailure, ContactArray); 
+}
+
+export function UpdateFromExistingContacts(userInfo, contactObject, contactKeyToDelete, selectedContactId) { 
+  let ContactArray = HandleContactForUpdateWithExisting.createContactObject(contactObject, contactKeyToDelete, selectedContactId);
+  
+    return UpdateContacts(userInfo, config.AppConfigStore.basePathAPI + apiConfig.contactsAPI.updateContacts,
+    ActionCreators.addToExistingSuccess, ActionCreators.addToExistingFailure, ContactArray,"delAddToExisting");
+}
+
+export function UpdateAddEditExistingContacts(userInfo, contactObject, contactKeyToDelete, selectedContactId) { 
+    let ContactArray = HandleContactForUpdateWithAddExisting.createContactObject(contactObject, contactKeyToDelete, selectedContactId);
+    
+      return UpdateContactsAddToExisting(userInfo, config.AppConfigStore.basePathAPI + apiConfig.contactsAPI.updateContacts,
+        ActionCreators.addToExistingSuccess, ActionCreators.editContactFailure, ContactArray);
+}
+
+export function DeleteContacts(userInfo, contactObject, contactKeyToDelete) {
+
+  let ContactArray = HandleContactForUpdateWithExisting.deleteContactObject(contactObject, contactKeyToDelete);
+
+    return UpdateContacts(userInfo, config.AppConfigStore.basePathAPI + apiConfig.contactsAPI.updateContacts,
+    ActionCreators.delContactSuccess, ActionCreators.deleteContactFailure, ContactArray,"delete");
+}
+//edit-add to exisitng
+export function EditFromExistingContacts(userInfo, contactObject, contactToDelete, selectedContactId) { 
+   let ContactArray = HandleContactForEditWithExisting.createContactObject(contactObject, contactToDelete, selectedContactId);
+  
+    return UpdateContacts(userInfo, config.AppConfigStore.basePathAPI + apiConfig.contactsAPI.updateContacts,
+    ActionCreators.addToExistingSuccess, ActionCreators.addToExistingFailure, ContactArray,"addToExisting");
+}
+
+export function loadCountries(userInfo) {
+  return post (userInfo,config.AppConfigStore.basePathAPI + apiConfig.metaAPI.getCountries ,ActionCreators.storeCountry,ActionCreators.ApiError); 
+}
+
+export function loadContactCategories(userInfo) {
+ return post (userInfo,config.AppConfigStore.basePathAPI + apiConfig.metaAPI.getCategories ,ActionCreators.storeCategory,ActionCreators.ApiError);
+
+}
+
+export function loadContacts(userInfo)
+{
+  return post (userInfo,config.AppConfigStore.basePathAPI + apiConfig.contactsAPI.getAllContacts ,ActionCreators.loadContactsSuccess , ActionCreators.ApiError);
+} 
+
+
+
+export function addContacts(userInfo, Contacts,contactCategory){
+
+  let ContactArray = HandleContactObject.createContactObject(Contacts,contactCategory);
+
+  return AddContacts (userInfo,config.AppConfigStore.basePathAPI + apiConfig.contactsAPI.addContacts , 
+    ActionCreators.addContactSuccess,ActionCreators.addContactFailure, ContactArray);
+  
+}
+
+
+function   post  (userInfo , URL, onSuccess,onError , payload )  {
+    Utils.trimObject(payload);
+    const options = apiManager.getOptions(Constants.HTTP_METHOD.GET, userInfo, payload);
+    return function(dispatch) {
+        return fetch(URL, options).then(response => {
+            if (!response.ok) {
+                throw new Error('Api Error');
+            }
+            return response.json().then(
+                resp =>
+                {
+                    dispatch(onSuccess(resp));
+                }
+            );
+
+        }).catch(exception => {
+
+            dispatch(onError( true));
+
+            return exception;
+        });
     }
+}
 
-    // the ONLY return for visible rows
-    return (
-      <div style={styles.toggleSwitchDiv} key={i}>
-        <ToggleSwitch
-          label={eachContactType.contactTypeName}
-          value={contactTypeSwitch[contactTypeId]}
-          valuePath={contactTypeId}
-          isDisabled={toggleDisabled}
-          onValueChange={(e) => this.handleToggleValue(e, contactTypeId)}
-        />
-      </div>
-    );
-  })}
-</div>
+let addResult = {
+    StatusCode: 200,
+    SuccessMessage: '',
+    ErrorMessage: new Array(),
+};
+function AddContacts (userInfo , URL, success,error, payload ) {
+    Utils.trimObject(payload);
+    const options = apiManager.getOptions(Constants.HTTP_METHOD.POST, userInfo, payload);
+    return function(dispatch) {
+        return fetch(URL, options).then(response => {
+            if (!response.ok) {
+                // throw new Error('Api Error');
+                addResult = {
+                    StatusCode: Constants.ERROR,
+                    SuccessMessage: '',
+                    ErrorMessage: new Array(),
+                };
+
+            response.json()
+                .then(resp => {
+                    addResult.ErrorMessage.push(resp[0]);
+                    dispatch(ActionCreators.addContactFailure(addResult.ErrorMessage));
+                });
+            }
+            else {
+                dispatch(success(response.statusText));
+            }
+        }).catch(exception => {
+            dispatch(error(true));
+            return exception;
+        });
+    }
+} 
+
+const Operation = { ADD: 'add', UPDATE: 'update', DELETE: 'delete', GET: 'get' };
+let successCount = 0;
+let result = {
+    StatusCode: 200,
+    SuccessMessage: '',
+    ErrorMessage: new Array(),
+};
+
+function UpdateContacts(userInfo, URL, success, error, payload, type) {
+    result = {
+        StatusCode: Constants.OK,
+        SuccessMessage: '',
+        ErrorMessage: new Array(),
+    };
+    successCount = 0;
+
+    Utils.trimObject(payload);
+    return async function (dispatch) {
+        const updateList = payload.filter(x => x.operation.toLowerCase() === Operation.UPDATE);
+        const addList = payload.filter(x => x.operation.toLowerCase() === Operation.ADD);
+        const deleteList = payload.filter(x => x.operation.toLowerCase() === Operation.DELETE);
+
+        if (updateList.length > 0) {
+            await updateContactsList(URL, userInfo, updateList);
+        }
+        if (addList.length > 0) {
+            await addContactsList(URL, userInfo, addList);            
+        }
+        if (deleteList.length > 0) {
+            await deleteContactList(URL, userInfo, deleteList);            
+        }
+
+        if (result.ErrorMessage.length > 0) {
+            result.StatusCode = Constants.ERROR;
+            if(type==='addToNewContact'){
+                dispatch(ActionCreators.addContactFailure(result.ErrorMessage));
+            } else{
+                dispatch(error(result.ErrorMessage));
+            }            
+        }
+        else {
+            if (successCount > 0 && successCount < payload.length) {
+                result.SuccessMessage = 'Partial Success';
+            }            
+            dispatch(success(result.StatusCode));
+        }
+    };
+}
+
+function UpdateContactsAddToExisting(userInfo, URL, success, error, payload, type) {
+    result = {
+        StatusCode: Constants.OK,
+        SuccessMessage: '',
+        ErrorMessage: new Array(),
+    };
+    successCount = 0;
+    Utils.trimObject(payload);
+    return async function (dispatch) {
+        const updateList = payload.filter(x => x.operation.toLowerCase() === Operation.UPDATE);
+        const addList = payload.filter(x => x.operation.toLowerCase() === Operation.ADD);
+        const deleteList = payload.filter(x => x.operation.toLowerCase() === Operation.DELETE);
+
+        if (updateList.length > 0) {
+            await updateContactsList(URL, userInfo, updateList);
+        }
+        if (addList.length > 0) {
+            await addContactsList(URL, userInfo, addList);            
+        }
+
+        if (result.ErrorMessage.length > 0) {
+            result.StatusCode = Constants.ERROR;
+            if(type==='addToNewContact'){
+                dispatch(ActionCreators.addContactFailure(result.ErrorMessage));
+            } else{
+                dispatch(error(result.ErrorMessage));
+            }            
+        }
+        else {
+            if (successCount > 0 && successCount < payload.length) {
+                result.SuccessMessage = 'Partial Success';
+            }            
+            dispatch(success(result.StatusCode));
+            if (deleteList.length > 0) {
+                await deleteContactList(URL, userInfo, deleteList);            
+            }
+        }
+    };
+}
+
+async function updateContactsList(URL, userInfo, updateList) {
+    const options = apiManager.getOptions(Constants.HTTP_METHOD.PUT, userInfo, updateList);
+    await fetch(URL, options).then(response => {
+            if (!response.ok) {
+                return response.json()
+                    .then(resp => {
+                        result.ErrorMessage.push(resp[0]);
+                    });
+            }
+            else {
+                successCount += updateList.length;
+            }
+        }).catch(exception => {
+            throw new Error(exception);
+        });
+}
+
+async function addContactsList(URL, userInfo, addList) {
+    const options = apiManager.getOptions(Constants.HTTP_METHOD.POST, userInfo, addList);
+    await fetch(URL, options).then(response => {
+        if (!response.ok) {
+            return response.json()
+            .then(resp => {
+                result.ErrorMessage.push(resp[0]);
+            });
+        }
+        else {
+            successCount += addList.length;
+        }    
+    }).catch(exception => {
+        throw new Error(exception);
+    });    
+}
+
+async function deleteContactList(URL, userInfo, deleteList) {
+    const delResultArray = await deleteList.map(async (item) => {
+        let options = apiManager.getOptions(Constants.HTTP_METHOD.DELETE, userInfo, null);
+        await fetch(`${URL}/${item.contactId}`, options).then(response => {
+            if (!response.ok) {
+                result.ErrorMessage.push({
+                    Errors: response.statusText,
+                    Operation: Operation.DELETE, Item: deleteList
+                });
+            }
+            else {
+                successCount++;
+            }
+        }).catch(exception => {
+            throw new Error(exception);
+        });
+    });
+
+    await Promise.all(delResultArray);
+} 
+
+export function deleteNReplaceAddNewContacts(userInfo, prevContactsDetails,currentContactDetails){
+
+  let ContactArray = HandleContactAddToNew.createAddToNewObject(prevContactsDetails,currentContactDetails);
+
+    return UpdateContacts (userInfo,config.AppConfigStore.basePathAPI + apiConfig.contactsAPI.updateContacts ,
+    ActionCreators.addToNewSuccess,ActionCreators.addToNewFailure, ContactArray, "addToNewContact");
+ 
+}
