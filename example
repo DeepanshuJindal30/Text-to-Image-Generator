@@ -1,13 +1,26 @@
-const processed = contactTypes.map((eachContactType, i) => {
-  const contactTypeId = eachContactType.contactTypeId;
-  const toggleDisabled = !this.props.AddExisting
-    ? !!toggleSwitchRules[contactTypeId]
-    : false;
+<div style={styles.toggleSwitchesDiv} id="contactTypeDivId">
+  {contactTypes.map((eachContactType, i) => {
+    const contactTypeId = eachContactType.contactTypeId;
+    const toggleSwitch = this.state.toggleSwitch;
+    const toggleSwitchRules = this.state.toggleSwitchRules;
 
-  return {
-    contactTypeId,
-    checked: !!this.state.toggleSwitch[contactTypeId],
-    disabled: toggleDisabled,
-    index: i,
-  };
-});
+    // decide disabled state
+    const toggleDisabled = !this.props.AddExisting
+      ? !!toggleSwitchRules[contactTypeId]
+      : false;
+
+    // (optional) skip rendering certain IDs
+    // if ([Constants.ROLESREGION.AGENTBROKER, ...].includes(contactTypeId)) return null;
+
+    return (
+      <div key={contactTypeId ?? i} className="contact-type-row">
+        <span>{contactTypeId}</span>
+        <ToggleSwitch
+          checked={!!toggleSwitch[contactTypeId]}
+          disabled={toggleDisabled}
+          onChange={(val) => this.handleToggleValue(val, contactTypeId)}
+        />
+      </div>
+    );
+  })}
+</div>
