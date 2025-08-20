@@ -1,26 +1,31 @@
-<div style={styles.toggleSwitchesDiv} id="contactTypeDivId">
-  {contactTypes.map((eachContactType, i) => {
-    const contactTypeId = eachContactType.contactTypeId;
-    const toggleSwitch = this.state.toggleSwitch;
-    const toggleSwitchRules = this.state.toggleSwitchRules;
+{contactTypes.map((eachContactType, i) => {
+  // ---- compute everything first
+  const contactTypeId = eachContactType.contactTypeId;
+  const contactTypeName = eachContactType.contactTypeName;
+  const toggleSwitch = this.state.toggleSwitch;
+  const toggleSwitchRules = this.state.toggleSwitchRules;
 
-    // decide disabled state
-    const toggleDisabled = !this.props.AddExisting
-      ? !!toggleSwitchRules[contactTypeId]
-      : false;
+  // decide disabled state
+  const toggleDisabled = !this.props.AddExisting
+    ? !!toggleSwitchRules[contactTypeId]
+    : false;
 
-    // (optional) skip rendering certain IDs
-    // if ([Constants.ROLESREGION.AGENTBROKER, ...].includes(contactTypeId)) return null;
+  // (optional) skip certain roles
+  // if ([Constants.ROLESREGION.AGENTBROKER, Constants.ROLESREGION.RIA].includes(contactTypeId)) {
+  //   return null; // returning null is fine in React to render nothing
+  // }
 
-    return (
-      <div key={contactTypeId ?? i} className="contact-type-row">
-        <span>{contactTypeId}</span>
-        <ToggleSwitch
-          checked={!!toggleSwitch[contactTypeId]}
-          disabled={toggleDisabled}
-          onChange={(val) => this.handleToggleValue(val, contactTypeId)}
-        />
-      </div>
-    );
-  })}
-</div>
+  // ---- now RETURN JSX and end the function
+  return (
+    <div key={contactTypeId ?? i} style={styles.toggleSwitchDiv}>
+      <ToggleSwitch
+        key={contactTypeId}
+        label={contactTypeName}
+        valuePath={contactTypeId}
+        disabled={toggleDisabled}
+        checked={!!toggleSwitch[contactTypeId]}
+        onValueChange={(val) => this.handleToggleValue(val, contactTypeId)}
+      />
+    </div>
+  );
+})}
