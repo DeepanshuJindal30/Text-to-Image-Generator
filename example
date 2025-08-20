@@ -1,1 +1,1795 @@
+import React from 'react';
+import PropTypes from 'prop-types';
+import { editContacts, UpdateAddEditExistingContacts, EditFromExistingContacts } from '../../actions/contactStoreActions';
+import {
+    AdpFormSubmitButton as SaveButton,
+    AdpForm as Form,
+    DatePicker, Icon,
+    AdpLabel as Label,
+    Button,
+    DropDownList,
+    AdpFormField as Field
+} from '@adp-sir/sbs-react-ui';
+import { connect } from 'react-redux';
+import { bindActionCreators } from 'redux';
+import Util from '../../../utils/util';
+import Constants from '../../../utils/constants';
+import Radium, { Style } from 'radium';
+import styles from './styles';
+import ToggleSwitch from '../ToggleSwitch';
+import { withRouter, Link } from 'react-router-dom';
+import ContactFormEditUtils from '../../UserInterfaceLogic/ContactFormUtils';
+import FieldValidator from './fieldValidator';
+import fieldConstants from '../../../utils/fieldConstants';
+import FormMessage from '../FormMessage';
+import Modal from '../Modal';
+import * as ActionCreators from '../../actions/ActionCreators';
+import ToolTip from '../Tootip';
+import { addGaEvent } from '../../actions/appStoreActions';
+import ExecutiveContactDisclaimer from '../ExecutiveContactDisclaimer';
 
+
+class ContactFormEdit extends React.Component {
+
+    constructor(props, context) {
+        super(props, context);
+
+        let initialStateForRoles = this.generateSwitchKeyValuePair(this.props);
+        this.state = {
+            
+            Contact: this.props.contactDetail._contact,
+            isShowInlineMessage: false,
+            errorMsg: '',            
+            countryData: [],
+            stateData: [],
+            homeCountryData:[],
+            homeStateData :[],
+            CountryInitialValue: '',
+            contactTypes: [],
+            isDOBControlDisabled: true,
+            requiredFields: fieldConstants.isRequiredFields,
+            prcControls: false,
+            errorMasType: "",          
+            toggleSwitch: initialStateForRoles.switchKeys,
+            toggleSwitchRules: initialStateForRoles.switchRuleKeys,
+            disableContact:initialStateForRoles.disableContact,        
+            isDeleteOpen : false,
+            selectedContactType : '',
+            isAddToExistingOpen: false,
+            selectedContactId: 'initialValue',
+            contactObject: [],
+            isOpen:false,
+            contactToDelete : [],
+            apiErrorList:[],
+            roleRequiredError:false,           
+            contactTypeLabel:fieldConstants.FieldAttributes.contactType.label,
+            contactTypeRequired:false,
+            contactTypeErrorText:'',   
+            dob: new Date(),               
+            homeDateOfBirth: new Date("01/01/1900"),     
+            getCurrentRoleAssignedState :  []   
+        };
+       
+        this.onCancel = this.onCancel.bind(this);
+        this._onCloseMsg = this._onCloseMsg.bind(this);
+        this._onSaveSuccess = this._onSaveSuccess.bind(this);
+        this.showError = this.showError.bind(this); 
+        this.form = new Form();
+        this.showDropDown = false;
+    }
+    getChildContext() {
+        return {
+            form: this.form
+        };
+    }
+
+    componentWillMount() {
+
+        
+        let countryD = ContactFormEditUtils.populateCountry(this.props.country, this.state.Contact.countryName, this.props.contactTabs[this.props.tabIndex]);
+        var someProperty = { ...this.state.Contact };        
+        let countryInfo = (this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ? ContactFormEditUtils.filterCountry(this.props.country, Constants.DEFAULT_COUNTRY, this.state.Contact.countryName) : [];
+        let stateMaster = ContactFormEditUtils.populateState(countryInfo, this.state.Contact.state);
+        let homeCountry =ContactFormEditUtils.filterCountry(this.props.country, Constants.DEFAULT_COUNTRY, Constants.DEFAULT_COUNTRY);
+        let homeStateMaster = ContactFormEditUtils.populateState(homeCountry);
+        someProperty["countryName"] = (this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL)? (this.state.Contact.countryName.length > 0 ? this.state.Contact.countryName : Constants.DEFAULT_COUNTRY):'';
+        someProperty["homeCountryName"] = this.state.Contact.homeCountryName!== null ? this.state.Contact.homeCountryName : Constants.DEFAULT_COUNTRY;
+        someProperty["homeDateOfBirth"] = this.state.Contact.homeDateOfBirth!== null ? this.state.Contact.homeDateOfBirth.trim() : null;
+        this.setState({
+            Contact: someProperty, stateData: stateMaster, countryData: countryD,
+             homeCountryData:countryD,
+        homeStateData :homeStateMaster,
+        contactBackup: someProperty
+
+        })
+    }
+
+    componentWillReceiveProps(nextProps)
+    {
+
+        if (nextProps.editContactFailure)
+        {
+            let errorList= nextProps.editContactFailure ?ContactFormEditUtils.onformErrors(nextProps.editContactFailure): '';       
+            this.setState({apiErrorList:errorList});
+        }
+        if ((nextProps.contactDetail._contact && nextProps.AddExisting))
+        {
+            this.setState({Contact:nextProps.contactDetail._contact});
+        }
+    
+    }
+
+
+    onInputChange(fieldName, fieldValue) {
+       
+        let someProperty = { ...this.state.Contact };
+        let stateMaster = [], reqFields = [];
+
+        if (fieldName.trim() === Constants.FIELD_NAMES.COUNTRYNAME) {
+           
+            let states = ContactFormEditUtils.filterCountry(this.props.country, fieldValue);
+            reqFields = this.state.requiredFields;
+            stateMaster = ContactFormEditUtils.populateState(states);
+            someProperty[fieldName] = fieldValue;
+            //We need city, state, zip blank when country dropdown value is changed
+            someProperty[Constants.FIELD_NAMES.STATE] = '';
+            someProperty[Constants.FIELD_NAMES.ZIP] = ''; 
+            someProperty[Constants.FIELD_NAMES.CITY] = '';
+            if (fieldValue.toUpperCase().trim() !== Constants.DEFAULT_COUNTRY && fieldValue.toUpperCase().trim() !== Constants.CA_COUNTRY) {
+                reqFields.state.required = false;
+                reqFields.zip.required = false;
+            } 
+            else {
+                reqFields.state.required = true;
+                reqFields.zip.required = true;
+            }
+
+        }
+        else if(fieldName.trim() ===Constants.FIELD_NAMES.CONTACTTYPENAME){
+            someProperty[fieldName] = fieldValue;
+            if (!fieldValue.includes("EXECUTIVE")) {
+                someProperty.legalFirstName = '';
+                someProperty.legalLastName= '';
+                someProperty.homeSocialSecurityNumber='';
+                someProperty.homeDateOfBirth= null;
+                someProperty.homeAddress1 = '';
+                someProperty.homeAddress2 = '';
+                someProperty.homeCity = '' ;
+                someProperty.homeState = '';
+                someProperty.homeZip = '';
+                someProperty.homeCountryName = 'USA';
+                this.setState({homeDOBError: false});
+            }
+        }
+        else if (fieldName.trim() === Constants.FIELD_NAMES.STATE) {
+            if (typeof fieldValue ===  Constants.FIELD_TYPE_OBJECT) {
+                someProperty[fieldName] = fieldValue.value;
+            }
+            else {
+                someProperty[fieldName] = fieldValue;
+            }
+
+        }
+        else if (fieldName.trim() === Constants.FIELD_NAMES.PRCACCESS) {
+            reqFields = this.state.requiredFields;
+            if (fieldValue === false) {
+                reqFields.ssn.required = false;
+                reqFields.dateOfBirth.required = false;
+                someProperty[fieldName] = fieldValue;               
+            }
+            else {
+                reqFields.ssn.required = true;
+                reqFields.dateOfBirth.required = true;
+                someProperty[fieldName] = fieldValue;
+                someProperty[Constants.FIELD_NAMES.DOB] = Util.stringToDate(new Date());
+            }
+        }                
+        else if (fieldName.trim() ===Constants.FIELD_NAMES.DOB){           
+            
+            someProperty[fieldName] =  Util.stringToDate(fieldValue);
+
+        } else if( fieldName.trim() === Constants.FIELD_NAMES.HOMEDOB){           
+            
+            someProperty[fieldName] =  Util.stringToDate(fieldValue);
+            this.setState({ homeDOBError: false});
+        }
+        else if (fieldName.trim() === "INPUT_HOME_DOB"){        
+            someProperty[Constants.FIELD_NAMES.HOMEDOB] =  fieldValue.target.value === '' ? null : fieldValue.target.value;    
+        } 
+        else if (fieldName.trim() === Constants.FIELD_NAMES.PHONE_NUMBER ||
+            fieldName.trim() === Constants.FIELD_NAMES.FAX ||
+            fieldName.trim() === Constants.FIELD_NAMES.MOBILE_NUMBER) {
+            let countryName = this.state.Contact.countryName;
+            if (this.props.contactTabs[this.props.tabIndex] === Constants.CONTACT_TYPES.INTERNAL) {
+                countryName = Constants.DEFAULT_COUNTRY;
+            }
+            someProperty[fieldName] = countryName === Constants.DEFAULT_COUNTRY &&
+            fieldValue.length > 9 ? Util.formatPhoneNumber(fieldValue) : fieldValue;
+
+        }
+        else {
+            someProperty[fieldName] = fieldValue;
+        }
+        if (stateMaster.length > 0)
+            this.setState({ Contact: someProperty, stateData: stateMaster });
+        else if (reqFields !== undefined && reqFields.length > 0)
+            this.setState({ Contact: someProperty, requiredFields: reqFields });
+        else
+            this.setState({ Contact: someProperty });
+
+    }
+
+    _onCloseMsg() {
+        this.setState({
+            isShowInlineMessage: false
+        });
+    }
+
+    _onSaveSuccess() {
+        this.setState({
+            isShowInlineMessage: true,
+            errorTitle: '',
+            errorMsg: Constants.FORM_MESSAGE_VARS.ERROR_MSG,
+            errorMasType:  Constants.FORM_MESSAGE_VARS.MAS_COLOR_GREEN
+        });
+    }
+
+    onCancel() {
+        this.props.history.push(`/${this.props.tabIndex}`);
+    }
+
+
+    showError(errorType, errorMsg) {       
+        this.setState({
+            isShowInlineMessage: true,
+            errorTitle: errorType,
+            errorMsg: errorMsg,
+            errorMasType:  Constants.FORM_MESSAGE_VARS.MAS_COLOR_RED
+        });
+
+    }
+
+    showContactTypeError=(value,labelText)=>{  
+        this.setState({
+            roleRequiredError:value,
+            contactTypeLabel:labelText,          
+        })
+      }  
+
+    componentWillUnmount() {
+        this.props.clearEdit();
+
+    }
+
+
+    createCopyOfState = (receivedState) => {
+        return Object.assign({}, receivedState);
+    }
+
+    getSelectedContactTypesEdit(contactTypeForEdit) {
+        let keysToGetContactType = Object.keys(contactTypeForEdit);        
+        let selectedContactTypes = [];
+        for (let i = 0; i < keysToGetContactType.length; i++) {
+            selectedContactTypes.push(contactTypeForEdit[keysToGetContactType[i]].contactType);                 
+        }
+        return selectedContactTypes;
+    } 
+  
+
+    getSelectedContactTypes() {
+        let contactTypeForEdit = this.state.Contact.contacts
+        let keysToGetContactType = Object.keys(contactTypeForEdit);        
+        let selectedContactTypes = [];
+        for (let i = 0; i < keysToGetContactType.length; i++) {
+            selectedContactTypes.push(contactTypeForEdit[keysToGetContactType[i]].contactType);                 
+        }
+        return selectedContactTypes;
+    }    
+    CloseForGA = () => {       
+        this.props.addGaEvent({
+            type: 'event',
+            name: 'EditContacts',
+            category: 'EditContact',
+            action: 'Clicked on Cancel',
+        });        
+    }
+
+    componentDidMount()
+    {   
+        let selectedContactFromToggle= this.getSelectedContactTypes();
+        let expectedState=ContactFormEditUtils.setSelectedContactTypes(
+            selectedContactFromToggle,
+            this.createCopyOfState(this.state.toggleSwitch),
+            this.createCopyOfState(this.state.toggleSwitchRules));
+        this.onInputChange(Constants.CONTACT_TYPE_NAME, expectedState.selectedContactType);
+        this.setStateOnToggleSwitch(expectedState.toggleSwitch,expectedState.toggleRules); 
+        
+       let reqFieldNewState= FieldValidator.requiredVsOptional(this.props.contactTabs[this.props.tabIndex], this.state.requiredFields);
+       if (this.state.Contact.countryName.trim() !== Constants.DEFAULT_COUNTRY && this.state.Contact.countryName.trim().toUpperCase() !== Constants.CA_COUNTRY) {
+            reqFieldNewState.state.required = false;
+            reqFieldNewState.zip.required = false;
+        } 
+        else {
+            reqFieldNewState.state.required = true;
+            reqFieldNewState.zip.required = true;
+        }
+
+        this.setState({
+            requiredFields: reqFieldNewState,           
+        })      
+    }
+
+    //Toggle Logic To generate Dynamic state based on Contact Category
+    generateSwitchKeyValuePair = (contactTypeProps) => {
+        let tabName =this.props.contactTabs[this.props.tabIndex];
+        let objectArray = ContactFormEditUtils.filteredContactTypes(contactTypeProps, tabName);    
+        //Get all contact roles that is already assigned.
+        let disableContact =ContactFormEditUtils.getContactsAssignedRoles(objectArray, this.props.contacts);           
+
+        let newStateArray = { switchKeys: [], switchRuleKeys: [], disableContact:[] }
+        for (let i = 0; i < objectArray.length; i++) {
+            if(objectArray[i].contactTypeId !== Constants.ROLESREGION.AGENTBROKER && objectArray[i].contactTypeId !== Constants.ROLESREGION.AGENTBROKER2 && objectArray[i].contactTypeId !== Constants.ROLESREGION.AGENTBROKER3 
+                && objectArray[i].contactTypeId !== Constants.ROLESREGION.RIA && objectArray[i].contactTypeId !== Constants.ROLESREGION.RIA_SECONDARY && objectArray[i].contactTypeId !== Constants.ROLESREGION.RIA2)     
+            {
+                Object.assign(newStateArray.switchKeys, { [objectArray[i].contactTypeId]: false })
+                Object.assign(newStateArray.switchRuleKeys, { [objectArray[i].contactTypeId]: false })           
+            }          
+        }
+        Object.assign(newStateArray.disableContact, disableContact)
+        return newStateArray;
+    }  
+    
+
+      handleToggleValue = (value, fieldName)=> {
+            if (this.getSelectedContactTypes().filter(eachTypeVal => eachTypeVal === fieldName).length > 0 && 
+                Constants.MANDATORY_CONTACT_TYPES.filter(eachType => eachType === fieldName).length > 0) {
+        
+                this.setState({
+                    isDeleteOpen : true,
+                    selectedContactType : fieldName,                   
+                }) 
+            }
+            let newStateForToggle = ContactFormEditUtils.setNestedProperty(
+                this.createCopyOfState(this.state.toggleSwitch),
+                this.createCopyOfState(this.state.toggleSwitchRules) ,
+                fieldName            
+                );               
+            this.onInputChange( Constants.CONTACT_TYPE_NAME ,newStateForToggle.selectedContactType); 
+            this.removeContactTypeSelectedInState(newStateForToggle.selectedContactType);  
+            this.setStateOnToggleSwitch( newStateForToggle.toggleSwitchStateCopy,newStateForToggle.toggleSwitchRulesStateCopy,newStateForToggle.selectedContactType);                         
+      }   
+  
+     setStateOnToggleSwitch=(newSwitchState,newSwitchRuleState)=>{        
+          this.setState({
+              toggleSwitch:  newSwitchState,
+              toggleSwitchRules: newSwitchRuleState,               
+          });
+     }
+     /** This method is used to set state when selected a contact role.
+      * @param  {} selectedContactType
+      */
+     removeContactTypeSelectedInState = (selectedContactType) => { 
+            this.setState({
+                getCurrentRoleAssignedState: selectedContactType
+             });
+     }
+   
+
+
+     getPrcUserDobHome = (prcDateOfBirth) => {
+        let dob = this.state.homeDateOfBirth;
+        if (prcDateOfBirth) {
+            dob = new Date(prcDateOfBirth);
+        }
+        return dob;
+     }
+
+
+closeSuccessMessage = () =>
+{
+    this.setState({apiErrorList:[]});
+}
+     
+    render() {     
+            let {basePath } = this.props.appConfig;
+            let showBanner = this.state.disableContact.length > 0 ;
+        if (this.props.addToExistingSuccess && this.props.addToExistingSuccess === Constants.OK) {
+            this.props.history.push(basePath + `${this.props.tabIndex}`);
+            return <div></div>;
+        }
+        if (this.props.editSuccess && this.props.editSuccess === Constants.OK) {          
+            this.props.history.push(basePath+`${this.props.tabIndex}`);
+            return (<div></div>);
+            } else {     
+                let errorList  =this.state.apiErrorList;
+               
+                if (errorList && errorList.length > 0) {
+                    let errorText = Constants.RESPONSE_MESSAGES.UPDATE_PARTIAL_SUCCESS;
+                    if (errorList[0].text === errorText) {
+                        this.props.history.push({
+                            pathname: basePath + `${this.props.tabIndex}`,
+                            errorText: errorText
+                        });
+                    } 
+                    else {
+                        clearTimeout(this.timer);
+                        this.timer = setTimeout(() => this.closeSuccessMessage(), Constants.TIME_OUT_IN_MILLISECONDS);
+                    }
+                }
+                    
+                this.showDropDown =ContactFormEditUtils.CheckIfCountryHasStates(this.state.Contact.countryName); 
+            
+                return (
+                    <div>
+                        <div style={styles.renderMainDIV}>   
+                        {errorList.length > 0 || showBanner ? <FormMessage isBanner={showBanner}  messages={errorList}/> : <span></span>}                               
+                       
+                            {this.renderForm()}
+                        </div>
+                    </div>
+                );
+        }
+    }
+
+    getDateValidation = () => {
+        var date =  this.state.Contact.homeDateOfBirth;
+        if(date !== null ){  
+            if (Util.dateValidation(date)) {
+                this.setState({ homeDOBError: true});
+            }
+            else {
+                this.setState({ homeDOBError: false});
+            }
+        }else {
+            this.setState({ homeDOBError: false});
+        }        
+     }
+
+    onUpdateSuccess = () => {        
+        this.props.addGaEvent({
+            type: 'event',
+            name: 'EditContacts',
+            category: 'EditContact',
+            action: 'Clicked on Save',
+        });  
+        const { planNumber, userId, userType } = this.props.sessionStore;        
+        let currentState = this.state.Contact;
+        let contactCategory = this.props.contactTabs[this.props.tabIndex];  
+        if(this.state.homeDOBError){
+            return;
+        }
+        if(this.props.AddExisting){
+            this.showContactTypeError(false, fieldConstants.FieldAttributes.contactType.label);
+            this.props.UpdateAddEditExistingContacts({
+                planNumber,
+                userId,
+                userType
+            }, currentState, this.props.contactdelete, this.props.selectedContactId);
+
+        }else{
+            if (Array.isArray(currentState.contactTypeName) && currentState.contactTypeName.length>0)  {
+                this.showContactTypeError(false, fieldConstants.FieldAttributes.contactType.label);
+                this.props.editContacts({ planNumber, userId, userType }, currentState, contactCategory);
+            }
+            else{
+                this.showContactTypeError(true, fieldConstants.FieldAttributes.contactType.labelError);
+                this.generateErrorListForContactType(true);
+            }  
+        }        
+        
+    }
+
+    generateErrorListForContactType=(toDisplay)=>{
+        let arrObj=[];
+        arrObj.push({text:fieldConstants.FieldAttributes.contactType.labelError,type:Constants.ERROR});  
+        this.setState({apiErrorList: toDisplay?arrObj:[]})   
+    }
+
+    renderForm() {
+        var Button = <SaveButton text={Constants.FORM_BUTTON_TEXT.UPDATE_BUTTON} onSuccess={this.onUpdateSuccess} onError={this.showError} />;
+        if( this.state.isDeleteOpen || this.state.isAddToExistingOpen){
+            this.props.addGaEvent({
+                type:'page',
+                name: this.state.isDeleteOpen ? '/mandatoryEdit' : '/replaceWithExistingEdit'
+            });
+        }      
+        return (<div className='mainDiv'>
+        <Style rules={styles.pageLevelStyle}/>
+           <div className='nameRegion'>
+           <div style={styles.margin3Percent}>
+           <h3>Edit a Contact</h3>
+           <h4>Name</h4>
+          </div>
+               <fieldset>
+
+                   <div style={styles.rowBox}>
+
+                       <div style={styles.column47}>
+                           <div style={styles.margin1Percent}>
+                           <Field
+                               name={fieldConstants.FieldAttributes.firstName.name}
+                               label={fieldConstants.FieldAttributes.firstName.label}
+                               maxlength={fieldConstants.FieldAttributes.firstName.maxLength}
+                               isRequired={fieldConstants.FieldAttributes.firstName.isRequired}
+                               value={this.state.Contact.firstName}                                   
+                               className={fieldConstants.FieldAttributes.firstName.class}
+                               charmask={fieldConstants.MaskExpressions.noDigits}
+                               validationformat={fieldConstants.ValidationsExpression.allowAllExceptWS}
+                               onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.firstName.name)}
+                               textBoxClass = {fieldConstants.textBox100Percent}
+                               labelClass={fieldConstants.labelClass}
+                               inputDisabled={this.state.requiredFields.firstName.disabled}
+                           />                      
+
+                           </div>
+                       </div>
+                       <div style={styles.column6}>
+                           <div style={styles.margin1Percent}>
+                           <Field
+                               name={fieldConstants.FieldAttributes.middleInitial.name}
+                               label={fieldConstants.FieldAttributes.middleInitial.label}
+                               maxlength={fieldConstants.FieldAttributes.middleInitial.maxLength}
+                               value={this.state.Contact.middleInitial}                                   
+                               className={fieldConstants.FieldAttributes.middleInitial.class}
+                               charmask={fieldConstants.MaskExpressions.onlyAlphabets}
+                               onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.middleInitial.name)}
+                               textBoxClass = {fieldConstants.middleInitialClass}
+                           /> 
+
+                           </div>
+                       </div>
+                       <div style={styles.column47}>
+                           <div style={styles.margin10px}>
+                           <Field
+                           name={fieldConstants.FieldAttributes.lastName.name}
+                           label={fieldConstants.FieldAttributes.lastName.label}
+                           maxlength={fieldConstants.FieldAttributes.lastName.maxLength}
+                           isRequired={fieldConstants.FieldAttributes.lastName.isRequired}
+                           value={this.state.Contact.lastName}                                      
+                           className={fieldConstants.FieldAttributes.lastName.class}
+                           charmask={fieldConstants.MaskExpressions.noDigits}
+                           validationformat={fieldConstants.ValidationsExpression.allowAllExceptWS}
+                           onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.lastName.name)}
+                           textBoxClass = {fieldConstants.textBox100Percent}
+                           labelClass={fieldConstants.labelClass}  
+                           inputDisabled={this.props.AddExisting} 
+                           /> 
+
+                           </div>
+                       </div>
+                   </div>
+               </fieldset>
+
+              <fieldset>
+                   <div style={styles.rowBox}>
+                       <div style={styles.column50}>
+                       <div style={styles.margin1Percent}>
+                       <Field
+                           name={fieldConstants.FieldAttributes.title.name}
+                           label={fieldConstants.FieldAttributes.title.label}
+                           maxlength={fieldConstants.FieldAttributes.title.maxLength}                              
+                           value={this.state.Contact.title}                                      
+                           className={fieldConstants.FieldAttributes.title.class}
+                           onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.title.name)}
+                           textBoxClass = {fieldConstants.textBox100Percent}
+                           inputDisabled={this.state.requiredFields.title.disabled}
+                       />    
+                       </div>
+                       </div>
+                       <div style={styles.column50}>
+                       <div style={styles.margin1Percent}>
+                            <Field
+                                    name={fieldConstants.FieldAttributes.companyName.name}
+                                    label={fieldConstants.FieldAttributes.companyName.label}
+                                    maxlength={fieldConstants.FieldAttributes.companyName.maxLength}
+                                    isRequired={this.state.requiredFields.companyName.required}
+                                    value={this.state.Contact.companyName}
+                                    className={fieldConstants.FieldAttributes.companyName.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.companyName.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.companyName.required ? fieldConstants.labelClass : ''}
+                                    inputDisabled={this.state.requiredFields.companyName.disabled}
+                                />
+                            </div>
+                        </div>
+
+                    </div>
+                </fieldset>
+                <hr style={styles.rowBoxWithoutPadding} />
+            </div> {/* End of nameRegion */}
+            <div className='addressRegion'>
+                <div style={styles.margin3Percent}>
+                    <h4>Address</h4>
+                </div>
+                <fieldset>
+                    <div style={styles.rowBox}>
+                        <div style={styles.column50}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.addressLine1.name}
+                                    label={fieldConstants.FieldAttributes.addressLine1.label}
+                                    maxlength={fieldConstants.FieldAttributes.addressLine1.maxLength}
+                                    isRequired={this.state.requiredFields.addressLine1.required}
+                                    inputDisabled={this.state.requiredFields.addressLine1.disabled}
+                                    value={this.state.Contact.addressLine1}
+                                    validationformat={fieldConstants.ValidationsExpression.allowAllExceptWS}
+                                    className={fieldConstants.FieldAttributes.addressLine1.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.addressLine1.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.addressLine1.required ? fieldConstants.labelClass : ''}
+                                />
+
+                            </div>
+                        </div>
+                        <div style={styles.column50}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.addressLine2.name}
+                                    label={fieldConstants.FieldAttributes.addressLine2.label}
+                                    maxlength={fieldConstants.FieldAttributes.addressLine2.maxLength}
+                                    inputDisabled={this.state.requiredFields.addressLine2.disabled}
+                                    value={this.state.Contact.addressLine2}
+                                    className={fieldConstants.FieldAttributes.addressLine2.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.addressLine2.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                />
+
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                <fieldset>
+                    <div style={styles.rowBox}>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.city.name}
+                                    label={fieldConstants.FieldAttributes.city.label}
+                                    maxlength={fieldConstants.FieldAttributes.city.maxLength}
+                                    isRequired={this.state.requiredFields.city.required}
+                                    inputDisabled={this.state.requiredFields.city.disabled}
+                                    value={this.state.Contact.city}
+                                    charmask={fieldConstants.MaskExpressions.city}
+                                    validationformat={fieldConstants.ValidationsExpression.city}
+                                    className={fieldConstants.FieldAttributes.city.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.city.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.city.required ? fieldConstants.labelClass : ''}
+                                />
+
+
+                            </div>
+                        </div>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent}>
+                                {this.showDropDown === true && <div id={fieldConstants.FieldAttributes.state.dropDownId}  >
+
+                                    <Field
+                                        label={fieldConstants.FieldAttributes.state.label}
+                                        name={fieldConstants.FieldAttributes.state.name}
+                                        editable={true}
+                                        type="select"
+                                        menuItems={this.state.stateData}
+                                        value={this.state.Contact.state}
+                                        defaultItem ={this.state.stateData.filter(x=>x.value===this.state.Contact.state)[0]}                        
+                                        onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.state.name)}
+                                        isRequired={this.state.requiredFields.state.required}
+                                        labelClass={this.state.Contact.countryName.toUpperCase() !== Constants.DEFAULT_COUNTRY && this.state.Contact.countryName.toUpperCase() !== Constants.CA_COUNTRY ? '' : fieldConstants.labelClass}
+                                        disabled={this.state.requiredFields.state.required ? false : true}
+                                    />
+                                </div>
+                                }
+                                {this.showDropDown === false && <div id='stateFieldDiv' style={{ display: this.showDropDown === true ? 'none' : 'block' }} labelClass={this.state.requiredFields.state.required ? fieldConstants.labelClass : ''}>
+                                    <Field
+                                        name={fieldConstants.FieldAttributes.state.name}
+                                        label={fieldConstants.FieldAttributes.state.label}
+                                        maxlength={fieldConstants.FieldAttributes.state.maxLength}
+                                        value={this.state.Contact.state}
+                                        charmask={fieldConstants.MaskExpressions.onlyAlphabets} 
+                                        isRequired={this.state.requiredFields.state.required}
+                                        onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.state.name)}
+                                        textBoxClass={fieldConstants.textBox100Percent}
+                                        labelClass={this.state.requiredFields.state.required === true ? fieldConstants.labelClass : ''}
+                                        inputDisabled={this.state.requiredFields.state.disabled}
+                                    />
+                                </div>
+
+                                }
+
+                            </div>
+                        </div>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent} >
+                            { (this.state.Contact.countryName === Constants.DEFAULT_COUNTRY || this.state.Contact.countryName.toUpperCase() === Constants.CA_COUNTRY) &&
+                                <Field
+                                    name={fieldConstants.FieldAttributes.zipcode.name}
+                                    label={fieldConstants.FieldAttributes.zipcode.label}
+                                    maxlength={fieldConstants.FieldAttributes.zipcode.maxLength}
+                                    isRequired={this.state.requiredFields.zip.required}
+                                    value={this.state.Contact.zip}
+                                    charmask={this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?  
+                                        fieldConstants.ValidationsExpression.numberOnlyRegEx : 
+                                        fieldConstants.ValidationsExpression.stringNumberRegExMask}
+                                    validationformat={this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ? 
+                                                fieldConstants.ValidationsExpression.zipUSARegEx : 
+                                                this.state.Contact.countryName.toUpperCase() === Constants.CA_COUNTRY ?  fieldConstants.ValidationsExpression.zipCARegEx : 
+                                                fieldConstants.ValidationsExpression.stringNumberRegExMask}                              
+                                    className={fieldConstants.FieldAttributes.zipcode.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.zipcode.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.zip.required ? fieldConstants.labelClass : ''}
+                                    inputDisabled={this.state.requiredFields.zip.disabled}
+                                />
+                            }
+                            { (this.state.Contact.countryName !== Constants.DEFAULT_COUNTRY && this.state.Contact.countryName.toUpperCase() !== Constants.CA_COUNTRY) &&
+                                 <Field
+                                 name={fieldConstants.FieldAttributes.zipcode.name}
+                                 label={fieldConstants.FieldAttributes.zipcode.label}
+                                 maxlength={fieldConstants.FieldAttributes.zipcode.maxLength}
+                                 isRequired={this.state.requiredFields.zip.required}
+                                 value={this.state.Contact.zip} 
+                                 charmask={fieldConstants.ValidationsExpression.stringNumberRegExMask}
+                                 validationformat={fieldConstants.ValidationsExpression.stringNumberRegExMask}                                                                   
+                                 className={fieldConstants.FieldAttributes.zipcode.class}
+                                onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.zipcode.name)}
+                                textBoxClass = {fieldConstants.textBox100Percent}
+                                labelClass={this.state.requiredFields.zip.required ? fieldConstants.labelClass : ''} 
+                                inputDisabled={this.state.requiredFields.zip.disabled}
+                                />  
+                            }
+                            </div>
+                        </div>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent} id='countryData'>
+                                <Field
+                                    label={fieldConstants.FieldAttributes.country.label}
+                                    name={fieldConstants.FieldAttributes.country.name}
+                                    editable={true}
+                                    type="select"
+                                    menuItems={this.state.countryData}
+                                    value={this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL ? this.state.Contact.countryName : ''}
+                                    defaultItem ={this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL ? {label:this.state.Contact.countryName, value:this.state.Contact.countryName} : ''}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.country.name)}
+                                    isRequired={this.state.requiredFields.country.required}
+                                    labelClass={this.state.requiredFields.country.required ? fieldConstants.labelClass : ''}
+                                    disabled={this.state.requiredFields.country.required ? false : true}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+            </div> {/* End of addressRegion */}
+            <hr style={styles.rowBoxWithoutPadding} />
+            <div className='connectRegion'>
+                <div style={styles.margin3Percent}>
+                    <h4>Connect</h4>
+                </div>
+                <fieldset>
+                    <div style={styles.rowBox}>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.phone.name}
+                                    label={fieldConstants.FieldAttributes.phone.label}
+                                    maxlength={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.FieldAttributes.phone.otherMaxLength : fieldConstants.FieldAttributes.phone.maxLength)) :
+                                            (fieldConstants.FieldAttributes.phone.otherMaxLength)
+                                        )     
+                                    }
+                                    isRequired={fieldConstants.FieldAttributes.phone.isRequired}
+                                    value={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                Util.formatPhoneNumber( this.state.Contact.phoneNumber) : this.state.Contact.phoneNumber)):
+                                            (Util.formatPhoneNumber(this.state.Contact.phoneNumber))
+                                        ) 
+                                    }  
+                                    charmask={                                
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.ValidationsExpression.phoneNoMask : fieldConstants.ValidationsExpression.numberOnlyRegEx)) :
+                                            (fieldConstants.ValidationsExpression.phoneNoMask)
+        
+                                        )
+                                    }                                    
+                                    validationformat={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.ValidationsExpression.phoneNoRegEx : fieldConstants.ValidationsExpression.numberOnlyRegEx)) :
+                                            (fieldConstants.ValidationsExpression.phoneNoRegEx)
+                                        )
+                                    }  
+                                    className={fieldConstants.FieldAttributes.phone.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.phone.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    labelClass={fieldConstants.labelClass}
+                                />
+
+                            </div>
+                        </div>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.phoneExtn.name}
+                                    label={fieldConstants.FieldAttributes.phoneExtn.label}
+                                    maxlength={fieldConstants.FieldAttributes.phoneExtn.maxLength}
+                                    charmask={fieldConstants.MaskExpressions.onlyNumber}  
+                                    value={this.state.Contact.phoneExt}
+                                    className={fieldConstants.FieldAttributes.phoneExtn.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.phoneExtn.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                />
+
+                            </div>
+                        </div>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.mobile.name}
+                                    label={fieldConstants.FieldAttributes.mobile.label}
+                                    maxlength={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.FieldAttributes.mobile.otherMaxLength : fieldConstants.FieldAttributes.mobile.maxLength)) :
+                                            (fieldConstants.FieldAttributes.mobile.otherMaxLength)
+                                        )     
+                                    }
+                                    value={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                Util.formatPhoneNumber( this.state.Contact.mobileNumber) : this.state.Contact.mobileNumber)):
+                                            (Util.formatPhoneNumber(this.state.Contact.mobileNumber))
+                                        ) 
+                                    } 
+                                    charmask={                                
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.ValidationsExpression.phoneNoMask : fieldConstants.ValidationsExpression.numberOnlyRegEx)) :
+                                            (fieldConstants.ValidationsExpression.phoneNoMask)
+        
+                                        )
+                                    }                                    
+                                    validationformat={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.ValidationsExpression.phoneNoRegEx : fieldConstants.ValidationsExpression.numberOnlyRegEx)) :
+                                            (fieldConstants.ValidationsExpression.phoneNoRegEx)
+                                        )
+                                    }
+                                    className={fieldConstants.FieldAttributes.mobile.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.mobile.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    inputDisabled={this.state.requiredFields.mobile.disabled}
+                                />
+
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                <fieldset>
+                    <div style={styles.rowBox}>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.fax.name}
+                                    label={fieldConstants.FieldAttributes.fax.label}
+                                    maxlength={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.FieldAttributes.fax.otherMaxLength : fieldConstants.FieldAttributes.fax.maxLength)) :
+                                            (fieldConstants.FieldAttributes.fax.otherMaxLength)
+                                        )     
+                                    }
+                                    value={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                Util.formatPhoneNumber(this.state.Contact.fax) : this.state.Contact.fax)):
+                                            (Util.formatPhoneNumber(this.state.Contact.fax))
+                                        ) 
+                                    }
+                                    charmask={                                
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.ValidationsExpression.phoneNoMask : fieldConstants.ValidationsExpression.numberOnlyRegEx)) :
+                                            (fieldConstants.ValidationsExpression.phoneNoMask)
+        
+                                        )
+                                    }                                    
+                                    validationformat={
+                                        ((this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL) ?
+                                            ((this.state.Contact.countryName === Constants.DEFAULT_COUNTRY ?
+                                                fieldConstants.ValidationsExpression.phoneNoRegEx : fieldConstants.ValidationsExpression.numberOnlyRegEx)) :
+                                            (fieldConstants.ValidationsExpression.phoneNoRegEx)
+                                        )
+                                    }
+                                    className={fieldConstants.FieldAttributes.fax.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.fax.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    inputDisabled={this.state.requiredFields.fax.disabled}
+                                />
+
+                            </div>
+                        </div>
+                        <div style={styles.column50}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.email.name}
+                                    label={fieldConstants.FieldAttributes.email.label}
+                                    maxlength={fieldConstants.FieldAttributes.email.maxLength}
+                                    isRequired={this.state.requiredFields.email.required}
+                                    value={this.state.Contact.workEmail}
+                                    charmask={fieldConstants.ValidationsExpression.emailMask}
+                                    validationformat={fieldConstants.ValidationsExpression.email}
+                                    className={fieldConstants.FieldAttributes.email.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.email.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.email.required ? fieldConstants.labelClass : ''}
+                                    inputDisabled={this.props.AddExisting}
+                                />
+
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                <hr style={styles.rowBoxWithoutPadding} />
+            </div> {/* End of connectRegion */}
+            <div className='rolesRegion'>
+                <div style={styles.margin3Percent} id="contactTypeLabel">
+                    <h4>Roles</h4><br />                    
+                    <Label  
+                    isRequired={true} 
+                    labelClass={fieldConstants.labelClass} 
+                    style={styles.smallSizeBoldFont} 
+                    requiredErrorText={this.state.contactTypeErrorText}
+                    label={this.state.contactTypeLabel}
+                    requiredError={ this.state.roleRequiredError} >                   
+                </Label>
+                </div>
+                <div style={styles.rowBoxWithoutPadding}> 
+               <div style={styles.margin3PercentForRoles}> 
+                        {this.renderToggleSwitch()}
+                    </div>
+                </div>
+
+            </div> {/* End of rolesRegion */}
+
+            {this.renderExecutivePersonalDetails()}
+
+            <hr style={styles.rowBoxWithoutPadding} />
+
+            <div className='sponsorRegion'>
+                <div style={styles.rowBox}>
+                    <div style={styles.column25}>
+                        <div style={styles.margin3PercentForSponsor}>
+                            <h4>Sponsor Site Access  &nbsp;                               
+                                <ToolTip  tooltipText={Constants.SPONSOR_ACCESS_TOOLTIP}>                                            
+                                    <Icon style={styles.questionIcon} name="fa-question-circle"/>
+                                </ToolTip>
+                            </h4>
+                        </div>
+                    </div>
+                    <div style={styles.prcAccessStyle}>
+                        <ToggleSwitch
+                            value={this.state.Contact.PRCAccess}
+                            onValueChange={this.onInputChange.bind(this, Constants.FIELD_NAMES.PRCACCESS)}
+                        />
+                    </div>
+                    {this.state.Contact.PRCAccess && <div>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent}>
+                                <Field
+                                    name={fieldConstants.FieldAttributes.ssn.name}
+                                    label={fieldConstants.FieldAttributes.ssn.label}
+                                    maxlength={fieldConstants.FieldAttributes.ssn.maxLength}
+                                    isRequired={this.state.requiredFields.ssn.required}
+                                    value={this.state.Contact.socialSecurityNumber}
+                                    charmask={fieldConstants.ValidationsExpression.numberOnlyRegEx}
+                                    validationformat={fieldConstants.ValidationsExpression.ssnRegEx}
+                                    className={fieldConstants.FieldAttributes.ssn.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.ssn.name)}
+                                    textBoxClass={fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.ssn.required ? fieldConstants.labelClass : ''}
+                                />
+
+                            </div>
+                        </div>
+                        <div style={styles.column25}>
+                            <div style={styles.margin1Percent}>
+                            <div id={fieldConstants.FieldAttributes.dateOfBirth.divId}>
+                               <span>
+                           <Label labelClass={this.state.requiredFields.dateOfBirth.required ? fieldConstants.labelClass : '' }
+                           label={fieldConstants.FieldAttributes.dateOfBirth.label}
+                           >
+                           </Label>
+                         
+                        <DatePicker
+                        id={fieldConstants.FieldAttributes.dateOfBirth.id}
+                        value={this.state.dob}
+                        onChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.dateOfBirth.name)}
+                        /> 
+                        </span>
+                      
+                        
+                    
+                               </div>
+                            </div>
+                        </div>
+                    </div>}
+                </div>
+            </div> {/* End of sponsorRegion */}
+
+            <hr style={styles.rowBoxWithoutPadding} />
+            <div>
+
+                <div style={styles.loginContBottom} id="addcancel">
+                    {Button}
+
+                    <span style={styles.closePopup}>
+                        <Link to={this.props.appConfig.basePath + this.props.tabIndex} style={styles.cancelLink}  onClick={this.CloseForGA.bind("addcancel")} > x CANCEL</Link>
+                        
+                    </span>
+                </div>
+            </div>
+
+        </div> //End of mainDiv
+        );
+    }
+
+
+closeDeleteNReplaceModal (contactTypeName)  {
+    let toggleSwitchVal = this.state.toggleSwitch;
+    let toggleSwitchRules = this.state.toggleSwitchRules;
+    
+    toggleSwitchVal[contactTypeName] = true;
+    if (contactTypeName === Constants.CONTACT_TYPES_MANDATORY_RULE.ADMIN1) {
+        toggleSwitchRules[Constants.CONTACT_TYPES_OTHER_RULE.ADMIN2] = true;
+        toggleSwitchRules[Constants.CONTACT_TYPES_OTHER_RULE.ADMINOTHER] = true;
+    }
+    let contacts = this.state.Contact;
+    let contactBackup = this.state.contactBackup;
+    contacts.contactTypeName.push(contactTypeName);
+    if (contactTypeName === "EXECUTIVE") {
+        contacts.legalFirstName = contactBackup.legalFirstName;
+        contacts.legalLastName = contactBackup.legalLastName;
+        contacts.homeSocialSecurityNumber = contactBackup.homeSocialSecurityNumber;
+        contacts.homeDateOfBirth = contactBackup.homeDateOfBirth;
+        contacts.homeAddress1 = contactBackup.homeAddress1;
+        contacts.homeAddress2 = contactBackup.homeAddress2;
+        contacts.homeCity = contactBackup.homeCity;
+        contacts.homeState = contactBackup.homeState;
+        contacts.homeZip = contactBackup.homeZip;
+        contacts.homeCountryName = contactBackup.homeCountryName;
+    }
+    this.setState({
+        isDeleteOpen :false,
+        toggleSwitch : toggleSwitchVal,
+        toggleSwitchRules:toggleSwitchRules,
+        Contact: contacts
+    })
+    this.props.addGaEvent({
+        type: 'event',
+        name: 'EditContacts',
+        category: 'EditContact - Delete and Replace',
+        action: 'Clicked on Cancel',
+    });  
+
+}
+
+handleAddToNew(contactObject) {
+    this.props.addGaEvent({
+        type: 'event',
+        name: 'EditContacts',
+        category: 'EditContact - Delete and Replace',
+        action: 'Clicked on Add to New Contact',
+    });
+    let {basePath } = this.props.appConfig;
+    this.props.history.push({pathname:basePath+`${this.props.tabIndex}/AddContact`, contactToDelete:{ contactObject }});
+}
+openDeleteNReplaceModal(contactObj) {
+
+        this.setState({
+            isOpen: false,
+            isDeleteOpen: true,
+            isAddToExistingOpen: false,
+            contactObject: contactObj
+        })
+        this.props.addGaEvent({
+            type: 'event',
+            name: 'EditContacts',
+            category: 'EditContact - Delete and Replace',
+            action: 'Clicked on Add to Existing Contact',
+        });
+
+}
+openAddToExistingModal(contactObj, contactToDelete) {    
+    this.setState({
+        isOpen: false,
+        isDeleteOpen: false,
+        isAddToExistingOpen: true,
+        contactObject: contactObj,
+        contactToDelete : contactToDelete
+    })
+    this.props.addGaEvent({
+        type: 'event',
+        name: 'EditContacts',
+        category: 'EditContact - Delete and Replace',
+        action: 'Clicked on Add to Existing Contact',
+    });
+}
+handleAddToExisting = (isExecutiveNotInclude) => {
+    let selectedContactId = this.state.selectedContactId;
+    let contactObject = this.state.contactObject;
+    let contactToDelete = this.state.contactToDelete;
+    this.setState({
+        isOpen: false,
+        isDeleteOpen: false,
+        isAddToExistingOpen: false
+    })
+    if(!isExecutiveNotInclude){
+       let contactKeyToDelete= contactToDelete[0].FilterKey;
+      
+        let _contact= contactObject.filter(element=> {return selectedContactId===element.FilterKey})[0];
+        let _contactdelete= contactObject.filter(element=> {return contactKeyToDelete===element.FilterKey})[0];
+        let _contactBack= _contactdelete.contacts.filter(element=> {return "Executive" ===element.contactTypeName})[0];
+        
+        _contact.contactTypes.push('Executive');
+        _contact.homeCountryName = 'USA';
+        
+        // _contact.contactTypeName.push('Executive');
+        _contact.contacts.push(_contactBack);
+        _contact.contactTypeName=[..._contact.contacts];
+        _contactdelete.contactTypes =['Executive'];
+        _contactdelete.contacts=[];
+        _contactdelete.contacts.push(_contactBack);
+
+        let selectedContactFromToggle= this.getSelectedContactTypesEdit(_contact.contacts);
+        let toogleEnable = {
+            ADMIN1: false,
+            ADMIN2: false,
+            ADMINOTHER: false,
+            BILLING: false,
+            EXECUTIVE: false,
+            RETURN_NAME: false,
+          };
+      
+        let expectedState=ContactFormEditUtils.setSelectedContactTypes(
+            selectedContactFromToggle,
+            this.createCopyOfState(toogleEnable),
+            this.createCopyOfState(this.state.toggleSwitchRules));
+        this.setStateOnToggleSwitch(expectedState.toggleSwitch,expectedState.toggleRules); 
+        this.props.addGaEvent({
+            type: 'event',
+            name: 'viewcontacts',
+            category: 'viewcontacts',
+            action: 'Clicked on Edit',
+        });  
+        let {basePath } = this.props.appConfig;
+        let contactspropValue = this.props.contactDetail.contactspropValue
+        this.props.history.push({          
+            pathname:basePath+`${this.props.tabIndex}/EditContact`,
+            contactDetail: {
+                _contact,
+                contactspropValue
+            },
+            "contactdelete":_contactdelete,
+            "selectedContactId":selectedContactId,
+            "AddExisting": true
+
+        });
+    } else {
+        this.props.addGaEvent({
+            type: 'event',
+            name: 'EditContacts',
+            category: 'EditContact - Delete and Replace with Existing',
+            action: 'Clicked on Apply',
+        });
+
+        const {
+            planNumber,
+            userId,
+            userType
+        } = this.props.sessionStore
+
+        this.props.EditFromExistingContacts({
+            planNumber,
+            userId,
+            userType
+        }, contactObject, contactToDelete[0], selectedContactId);
+
+        
+        this.props.history.push(this.props.appConfig.basePath + this.props.tabIndex);
+    }
+}
+closeAddToExistingModal(contactTypeName) {
+
+    let contacts = this.state.Contact;
+    contacts.contactTypeName.push(contactTypeName);
+
+    var toggleSwitchVal = this.state.toggleSwitch;
+    var toggleSwitchRules = this.state.toggleSwitchRules;
+    toggleSwitchVal[contactTypeName] = true;
+    if (contactTypeName === Constants.CONTACT_TYPES_MANDATORY_RULE.ADMIN1) {
+        toggleSwitchRules[Constants.CONTACT_TYPES_OTHER_RULE.ADMIN2] = true;
+        toggleSwitchRules[Constants.CONTACT_TYPES_OTHER_RULE.ADMINOTHER] = true;
+    }    
+    let contactBackup = this.state.contactBackup;
+    if (contactTypeName === "EXECUTIVE") {
+        contacts.legalFirstName = contactBackup.legalFirstName;
+        contacts.legalLastName = contactBackup.legalLastName;
+        contacts.homeSocialSecurityNumber = contactBackup.homeSocialSecurityNumber;
+        contacts.homeDateOfBirth = contactBackup.homeDateOfBirth;
+        contacts.homeAddress1 = contactBackup.homeAddress1;
+        contacts.homeAddress2 = contactBackup.homeAddress2;
+        contacts.homeCity = contactBackup.homeCity;
+        contacts.homeState = contactBackup.homeState;
+        contacts.homeZip = contactBackup.homeZip;
+        contacts.homeCountryName = contactBackup.homeCountryName;
+    }
+    this.setState({
+        isOpen: false,
+        isDeleteOpen: false,
+        isAddToExistingOpen: false,
+        toggleSwitch : toggleSwitchVal,
+        toggleSwitchRules:toggleSwitchRules,
+        Contact: contacts
+    })
+    this.props.addGaEvent({
+        type: 'event',
+        name: 'EditContacts',
+        category: 'EditContact - Delete and Replace with Existing',
+        action: 'Clicked on Cancel',
+    });
+}
+onDropdownInputChange = (fieldValue) => {     
+    this.setState({
+        selectedContactId: fieldValue.value
+    });
+
+}
+
+      renderToggleSwitch = ()=> {          
+          let tabName =this.props.contactTabs[this.props.tabIndex];
+          const contactTypes=ContactFormEditUtils.filteredContactTypes(this.props,tabName);
+          const contactObject =  this.state.Contact;
+
+          //changes for Logged in PRC User
+          // US1171206: Plan Contacts - Prevent PRC users from deleting themselves - Edit Scenarios         
+          const isLoggedInUser = Util.IsLoggedInUser(contactObject.prcUserId, this.props.sessionStore.userId, this.props.sessionStore.userType);
+          //Disable contact types already assigned to other contacts
+          let toggleSwitchRules = this.state.toggleSwitchRules;                   
+        
+        if (isLoggedInUser) {           
+            
+            toggleSwitchRules = Util.DisableToggleSwitchRulesFor(toggleSwitchRules);
+          
+        } else {
+             //Get Selected roles and assign rules to that.
+            let getCurrentRoleAssigned = contactObject.contacts.map(c=> c.contactType);
+      
+            let currentAssignedRoles = this.state.getCurrentRoleAssignedState;
+             //Disable already assigned contact roles
+             if (this.state.disableContact.length > 0 ) {
+                 for(let i = 0; i < this.state.disableContact.length;i++) {
+                   toggleSwitchRules[this.state.disableContact[i].contactType] = true; 
+                     for (let index = 0; index < getCurrentRoleAssigned.length; index++) {  
+                       toggleSwitchRules[getCurrentRoleAssigned[index]] = false;   
+                       //re check for business rules for admin1 or admin2 or adminother then the selected role should not be disabled.
+                       if (currentAssignedRoles.length > 0 ) {                      
+                           for (let i = 0; i < currentAssignedRoles.length; i++) {
+                               const element = currentAssignedRoles[i];
+                               if(element === Constants.BUSINESS_RULE_FOR_ADMINS.ADMIN1) {   
+                                       toggleSwitchRules[Constants.BUSINESS_RULE_FOR_ADMINS.ADMIN2] = true;                               
+                                       toggleSwitchRules[Constants.BUSINESS_RULE_FOR_ADMINS.ADMINOTHER] = true;                                       
+                                   }
+                                   else if(element === Constants.BUSINESS_RULE_FOR_ADMINS.ADMIN2) {    
+                                       toggleSwitchRules[Constants.BUSINESS_RULE_FOR_ADMINS.ADMIN1] = true;                            
+                                       toggleSwitchRules[Constants.BUSINESS_RULE_FOR_ADMINS.ADMINOTHER] = true;                                         
+                                   }
+                                   else if (element === Constants.BUSINESS_RULE_FOR_ADMINS.ADMINOTHER) {
+                                       toggleSwitchRules[Constants.BUSINESS_RULE_FOR_ADMINS.ADMIN1] = true; 
+                                       toggleSwitchRules[Constants.BUSINESS_RULE_FOR_ADMINS.ADMIN2] = true;       
+                                   }
+                               }
+                           }                       
+                     }
+                      
+                 }
+             }
+        }
+
+          
+           // #region "Update with Existing"
+           let contactList = [];
+           let keyID = (this.state.contactToDelete !== undefined && this.state.contactToDelete !== null && this.state.contactToDelete.length >0)? this.state.contactToDelete[0].FilterKey:'';
+            // Check if deleting ADMIN1
+            let isAdmin1ToDelete = (this.state.contactToDelete !== undefined && this.state.contactToDelete !== null && this.state.contactToDelete.length >0)
+                                    ? (this.state.contactToDelete[0].contactType ===  Constants.CONTACT_TYPES_MANDATORY_RULE.ADMIN1): false;
+           
+           if (keyID !== '') {
+               const keyToFilter = keyID;
+               let contact = this.props.contactDetail.contactspropValue.find((c) => 
+                   c.FilterKey === keyToFilter
+                       
+               );
+    
+               contact.map(function (localContact) {
+                   let fullName = localContact.firstName + ' ' + Util.replaceNullorEmpty(localContact.middleInitial, '') + ' ' + localContact.lastName;
+                    contactList.push({
+                       label: fullName,
+                       value: localContact.FilterKey
+                   });
+                   return fullName;
+               });
+               
+
+            }
+            //#endregion   
+            var countForDropdown1 =  this.props.contactDetail.contactspropValue.length;
+            let isExecutiveNotInclude = this.state.selectedContactType ===  Constants.CONTACT_TYPES_MANDATORY_RULE.EXECUTIVE? false: true
+            let toggleRendered2 = 
+            contactTypes.length >0  ?  
+            <div style={styles.toggleSwitchSecDiv} id="contactTypeDivId">                  
+                    {        
+                    contactTypes
+                    .map( 
+                        (eachContactType, i) =>{    
+                        let contactTypeId = eachContactType.contactTypeId;
+                        let contactTypeSwitch = this.state.toggleSwitch;                        
+                        let contactTypeSwitchRule = toggleSwitchRules; 
+                        let toggleDisabled = true
+                        if(!this.props.AddExisting){
+                            toggleDisabled=contactTypeSwitchRule[contactTypeId]
+                        }
+                        //SBSRS-87253 - Removing FA and RIA toggle fields in ADD/EDIT option for partner contacts
+                        if(contactTypeId !== Constants.ROLESREGION.AGENTBROKER && contactTypeId !== Constants.ROLESREGION.AGENTBROKER2 && contactTypeId !== Constants.ROLESREGION.AGENTBROKER3
+                            && contactTypeId !== Constants.ROLESREGION.RIA  && contactTypeId !== Constants.ROLESREGION.RIA_SECONDARY && contactTypeId !== Constants.ROLESREGION.RIA2)
+                        {       
+                            return   (  
+                                <div style={styles.toggleSwitchDiv}  key={i} >   
+                                <ToggleSwitch 
+                                label={eachContactType.contactTypeName}
+                                value={contactTypeSwitch[contactTypeId]}                                     
+                                valuePath={ contactTypeId}
+                                isDisabled={toggleDisabled}
+                                onValueChange={(e) => this.handleToggleValue(e,contactTypeId) }
+                                />                   
+                                </div>               
+                            );//close return                                      
+                        }
+                    } )//close map
+                }
+                            <Modal show={this.state.isDeleteOpen} onClose={this.openCloseModal} styleType={"deleteOrReplaceNew"}>
+                            {
+                               <div>
+                                   <div style={styles.popupWarning}>
+                                       <h4 style={styles.popupWarningTitle}>Warning</h4>
+                                       </div>
+                                    <div style={styles.popupWarningMsgDiv}>
+                                    <div style={styles.popupWarningIcon}><Icon style={styles.styleIcon} name="fa-flag" /></div>
+                                    <div style={styles.popupWarningMessage}>{Constants.MANDATORY_CONTACT_MESSAGE}</div>
+    
+                                    </div>
+                                    <div style={styles.popupWarningExtMessage}>
+                                        {Constants.WARNING_MESSAGE}
+                                    </div>
+                                    <div style={styles.popupTextAlignCenter}>
+                                        <div style={styles.popupButtonMargin} id="sameWidthButton">
+                                        <Button text={Constants.ADD_TO_NEW_BUTTON_TEXT}  style={styles.deleteButtonPop} onClick={this.handleAddToNew.bind(this, this.state.Contact.contacts.filter(each => each.contactType === this.state.selectedContactType)) }/>
+                                        </div>
+                                        { countForDropdown1 > 1 ?
+                                        <div id="sameWidthButton">
+                                        <Button text={Constants.ADD_TO_EXISTING_BUTTON_TEXT}  style={styles.deleteButtonPop} onClick={this.openAddToExistingModal.bind(this, this.props.contactDetail.contactspropValue, this.state.Contact.contacts.filter(each => each.contactType === this.state.selectedContactType))} />
+                                        </div>:
+                                        <div id="sameWidthButton">
+                                        <Button text={Constants.ADD_TO_EXISTING_BUTTON_TEXT}  style={styles.deleteButtonPop} isDisabled = {true} />
+                                        </div>
+                                        }
+                                        <div  style={styles.popupCancelLink}>
+                                            <a style={styles.cancelLink} onClick={this.closeDeleteNReplaceModal.bind(this, this.state.selectedContactType)}>{"x CANCEL"}</a>
+                                        </div>
+                                    </div>
+                               </div>
+                            }
+                        </Modal>
+                        <div>  {/* Model for Add to existing contacts starts*/}
+                        
+                    <Modal show={this.state.isAddToExistingOpen} onClose={this.openCloseModal} styleType={"addToExistingModalStyle"}>
+                        {
+                           <div>
+                               <div style={styles.addtoExistingPopup}>
+                                   <h4 style={styles.addtoExistingPopupMessage}>Assign new role to existing contact</h4>
+                                </div>                               
+                                <div style={styles.popupTextAlignCenter}>
+                                    <div style={styles.addtoExistingPopupDropDown} id="addToExistDropdown">                                      
+
+                                         <DropDownList 
+                                            value="1" 
+                                            items={contactList} 
+                                            editable={true}
+                                            placeHolder={Constants.SELECT_CONTACT}
+                                            onValueChange={this.onDropdownInputChange.bind(this)} 
+                                            Required
+                                        />   
+
+                                    </div>
+                                   
+                                    {(isAdmin1ToDelete)? 
+                                    <div style={styles.admin1Div}>
+                                        <div style={styles.admin1DeletePopupIcon}><Icon style={styles.styleIcon} name="fa-hand-o-right" /></div>
+                                        <div style={styles.admin1DeletePopupMsg}>{Constants.ADMIN1DELETE}</div>
+                                    </div> :
+                                    <div style={styles.admin1Div}></div>                       
+                                }
+
+                                </div>
+                                <div style={styles.addtoExistingPopupButton}>
+                                    <div style={styles.addtoExistingPopupButtonDiv} id="editPopupButton">
+                                        <Button text={"APPLY"}
+                                            style={styles.applyButtonPopup} 
+                                            onClick={this.handleAddToExisting.bind(this, isExecutiveNotInclude)}
+                                         />
+                                        <a style={styles.addtoExistingPopupCancel} onClick={this.closeAddToExistingModal.bind(this,this.state.selectedContactType)}> x CANCEL</a>
+                                    </div>
+                                </div>   
+                           </div>                        }
+                    </Modal>
+                </div> {/* Model for Add to existing contacts ends*/}
+             </div>
+                       
+                
+                    
+            :'';        
+       return toggleRendered2;
+    }
+    
+    renderExecutivePersonalDetails = () => {
+        return (
+            <div>
+            {this.state.toggleSwitch.EXECUTIVE &&
+            <div>
+                <hr style={styles.rowBoxWithoutPadding} />
+                <div className='sponsorRegion'>    
+                    <div className='addressRegion'>
+                   <ExecutiveContactDisclaimer/>
+        <   div style={styles.ExecutiveInformationTitle}>
+           <h4>Executive Personal Details</h4>
+           </div>
+               <fieldset>
+               <div style={styles.rowBox}>
+                       <div style={styles.column50}>
+                           <div style={styles.margin1Percent}>
+                           <Field
+                                    name={fieldConstants.FieldAttributes.legalFirstName.name}
+                                    label={fieldConstants.FieldAttributes.legalFirstName.label}
+                                    maxlength={fieldConstants.FieldAttributes.legalFirstName.maxLength}
+                                    isRequired={this.state.requiredFields.legalFirstName.required}
+                                    value={this.state.Contact.legalFirstName}         
+                                    charmask={fieldConstants.MaskExpressions.noDigits}
+                                    validationformat={fieldConstants.ValidationsExpression.allowAllExceptWS}            
+                                    className={fieldConstants.FieldAttributes.legalFirstName.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.legalFirstName.name)}
+                                    textBoxClass = {fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.legalFirstName.required ? fieldConstants.labelClass : ''}
+                                    inputDisabled={this.state.requiredFields.legalFirstName.disabled} 
+                                />   
+
+                           </div>
+                       </div>
+                       <div style={styles.column50}>
+                           <div style={styles.margin1Percent}>
+                           <Field
+                                    name={fieldConstants.FieldAttributes.legalLastName.name}
+                                    label={fieldConstants.FieldAttributes.legalLastName.label}
+                                    maxlength={fieldConstants.FieldAttributes.legalLastName.maxLength}
+                                    isRequired={this.state.requiredFields.legalLastName.required}
+                                    value={this.state.Contact.legalLastName}         
+                                    charmask={fieldConstants.MaskExpressions.noDigits}
+                                    validationformat={fieldConstants.ValidationsExpression.allowAllExceptWS}            
+                                    className={fieldConstants.FieldAttributes.legalLastName.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.legalLastName.name)}
+                                    textBoxClass = {fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.legalLastName.required ? fieldConstants.labelClass : ''}
+                                    inputDisabled={this.state.requiredFields.legalLastName.disabled} 
+                                />  
+
+                           </div>
+                       </div>
+                   </div>
+                   <div style={styles.rowBox}>
+                       <div style={styles.column50}>
+                           <div style={styles.margin1Percent}>
+                           <Field
+                                    name={fieldConstants.FieldAttributes.homeSocialSecurityNumber.name}
+                                    label={fieldConstants.FieldAttributes.homeSocialSecurityNumber.label}
+                                    maxlength={fieldConstants.FieldAttributes.homeSocialSecurityNumber.maxLength}
+                                    isRequired={this.state.requiredFields.homeSocialSecurityNumber.required}
+                                    value={this.state.Contact.homeSocialSecurityNumber}         
+                                    charmask={fieldConstants.ValidationsExpression.numberOnlyRegEx}
+                                    validationformat={fieldConstants.ValidationsExpression.ssnRegEx}            
+                                    className={fieldConstants.FieldAttributes.homeSocialSecurityNumber.class}
+                                    onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.homeSocialSecurityNumber.name)}
+                                    textBoxClass = {fieldConstants.textBox100Percent}
+                                    labelClass={this.state.requiredFields.homeSocialSecurityNumber.required ? fieldConstants.labelClass : ''}
+                                    inputDisabled={this.state.requiredFields.homeSocialSecurityNumber.disabled} 
+                                />   
+
+                           </div>
+                       </div>
+                       <div style={styles.column50} >
+                       <div style={styles.margin1Percent}>
+
+                           <Label labelClass={this.state.homeDOBError ? fieldConstants.labelClass : '' }
+                                    label={fieldConstants.FieldAttributes.homeDateOfBirth.label}
+                                    requiredError={ this.state.homeDOBError}
+                                    requiredErrorText={' is invalid'}
+                                    >
+                                    </Label>
+                                    <div style={{ position: "relative" }}>
+                                <div
+                                    style={{
+                                    position: "absolute",
+                                    width: "90%",
+                                    height: "97%",
+                                    opacity: "1",
+                                    zIndex: "5",
+                                    background: "#FFFFFF",
+                                    margin: "0.5px",
+                                    }}
+                                >
+                                    <input
+                                    name="date"
+                                    style={{
+                                        margin: "0px",
+                                        border: "none",
+                                        height: "inherit",
+                                        boxShadow: "none",
+                                    }}
+                                    type="text"
+                                    onfocus="(this.type='date')"
+                                    onblur="if(!this.value)this.type='text'"
+                                    maxLength="10"
+                                    pattern="[0-9]"
+                                    value={this.state.Contact.homeDateOfBirth}
+                                    onChange={this.onInputChange.bind(this, "INPUT_HOME_DOB")}
+                                    placeholder={fieldConstants.FieldAttributes.homeDateOfBirth.placeholder}
+                                    onBlur={this.getDateValidation}
+                                    />
+                                </div>
+                                <DatePicker
+                                    id={fieldConstants.FieldAttributes.homeDateOfBirth.id}
+                                    value={this.getPrcUserDobHome(this.state.Contact.homeDateOfBirth)}
+                                    onChange={this.onInputChange.bind(
+                                    this,
+                                    fieldConstants.FieldAttributes.homeDateOfBirth.name
+                                    )}
+                                />
+                                </div>
+                           </div>
+                       </div>
+                   </div>
+               </fieldset>
+               
+
+           </div><div className='addressRegion'>
+           <div style={styles.margin3Percent}>
+           <h4>Executive Home Address</h4>
+           </div>
+               <fieldset>
+                   <div style={styles.rowBox}>
+                       <div style={styles.column50}>
+                           <div style={styles.margin1Percent}>
+                           <Field
+                               name={fieldConstants.FieldAttributes.homeAddress1.name}
+                               label={fieldConstants.FieldAttributes.homeAddress1.label}
+                               maxlength={fieldConstants.FieldAttributes.homeAddress1.maxLength}
+                               isRequired={this.state.requiredFields.homeAddress1.required}
+                               value={this.state.Contact.homeAddress1}                     
+                               validationformat={fieldConstants.ValidationsExpression.allowAllExceptWS}
+                               className={fieldConstants.FieldAttributes.homeAddress1.class}
+                               onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.homeAddress1.name)}
+                               textBoxClass = {fieldConstants.textBox100Percent}
+                               labelClass={this.state.requiredFields.homeAddress1.required ? fieldConstants.labelClass : ''} 
+                               inputDisabled={this.state.requiredFields.homeAddress1.disabled} 
+                               />   
+
+                           </div>
+                       </div>
+                       <div style={styles.column50}>
+                           <div style={styles.margin1Percent}>
+                           <Field
+                               name={fieldConstants.FieldAttributes.homeAddress2.name}
+                               label={fieldConstants.FieldAttributes.homeAddress2.label}
+                               maxlength={fieldConstants.FieldAttributes.homeAddress2.maxLength}
+                               value={this.state.Contact.homeAddress2}                                      
+                               className={fieldConstants.FieldAttributes.homeAddress2.class}
+                               onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.homeAddress2.name)}
+                               textBoxClass = {fieldConstants.textBox100Percent}
+                               inputDisabled={this.state.requiredFields.homeAddress2.disabled}
+                               />  
+
+                           </div>
+                       </div>
+                   </div>
+               </fieldset>
+               <fieldset>
+               <div style={styles.rowBox}>    
+                   <div style={styles.column25}>    
+                   <div style={styles.margin1Percent}>       
+                   <Field
+                        name={fieldConstants.FieldAttributes.homeCity.id}
+                        label={fieldConstants.FieldAttributes.homeCity.label}
+                        maxlength={fieldConstants.FieldAttributes.homeCity.maxLength}
+                        isRequired={this.state.requiredFields.homeCity.required}
+                        value={this.state.Contact.homeCity}         
+                        charmask={fieldConstants.MaskExpressions.city}
+                        validationformat={fieldConstants.ValidationsExpression.city}
+                        className={fieldConstants.FieldAttributes.homeCity.class}
+                        onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.homeCity.name)}
+                        textBoxClass = {fieldConstants.textBox100Percent}
+                        labelClass={this.state.requiredFields.homeCity.required ? fieldConstants.labelClass : ''} 
+                        inputDisabled={this.state.requiredFields.homeCity.disabled}
+                       />  
+ 
+                       
+                   </div>
+                   </div>
+                   <div style={styles.column25}>     
+                       <div style={styles.margin1Percent} id="stateDropDownDiv">      
+                        <div id={fieldConstants.FieldAttributes.homeState.dropDownId}  >         
+               
+                       <Field      
+                           label={fieldConstants.FieldAttributes.homeState.label}
+                           name={fieldConstants.FieldAttributes.homeState.name}  
+                           editable ={true}
+                           type="select"                        
+                           menuItems={this.state.homeStateData} 
+                            value ={this.state.Contact.homeState}
+                            defaultItem ={this.state.homeStateData.filter(x=>x.value===this.state.Contact.homeState)[0]}                      
+                         onValueChange={this.onInputChange.bind(this,fieldConstants.FieldAttributes.homeState.name)} 
+                         isRequired={this.state.requiredFields.homeState.required}
+                         labelClass={this.state.requiredFields.homeState.required ? fieldConstants.labelClass : ''}
+                         
+                         tabIndex={this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL ? 7 : -1}
+                         requiredError={this.state.Contact.homeState ? false : true}
+                           /> 
+                       </div>
+                   
+
+                   </div>
+                   </div>
+                   <div style={styles.column25}>    
+                   <div style={styles.margin1Percent}>            
+                       { (this.state.Contact.homeCountryName === Constants.DEFAULT_COUNTRY) &&
+                        <Field
+                            name={fieldConstants.FieldAttributes.homeZip.name}
+                            label={fieldConstants.FieldAttributes.homeZip.label}
+                            maxlength={fieldConstants.FieldAttributes.homeZip.maxLength}
+                            isRequired={this.state.requiredFields.homeZip.required}
+                            value={this.state.Contact.homeZip} 
+                            charmask={this.state.Contact.homeCountryName === Constants.DEFAULT_COUNTRY ?  
+                                    fieldConstants.ValidationsExpression.numberOnlyRegEx : 
+                                    fieldConstants.ValidationsExpression.stringNumberRegExMask}
+                            validationformat={this.state.Contact.homeCountryName === Constants.DEFAULT_COUNTRY ? 
+                                            fieldConstants.ValidationsExpression.zipUSARegEx : 
+                                            this.state.Contact.homeCountryName.toUpperCase() === Constants.CA_COUNTRY ?  fieldConstants.ValidationsExpression.zipCARegEx : 
+                                            fieldConstants.ValidationsExpression.stringNumberRegExMask}                                                                   
+                            className={fieldConstants.FieldAttributes.homeZip.class}
+                           onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.homeZip.name)}
+                           textBoxClass = {fieldConstants.textBox100Percent}
+                           labelClass={this.state.requiredFields.homeZip.required ? fieldConstants.labelClass : ''} 
+                           inputDisabled={this.state.requiredFields.homeZip.disabled}
+                       />  
+                            }
+                            { (this.state.Contact.homeCountryName !== Constants.DEFAULT_COUNTRY && this.state.Contact.homeCountryName.toUpperCase() !== Constants.CA_COUNTRY) &&
+                                 <Field
+                                 name={fieldConstants.FieldAttributes.homeZip.name}
+                                 label={fieldConstants.FieldAttributes.homeZip.label}
+                                 maxlength={fieldConstants.FieldAttributes.homeZip.maxLength}
+                                 isRequired={this.state.requiredFields.homeZip.required}
+                                 value={this.state.Contact.homeZip} 
+                                 charmask={fieldConstants.ValidationsExpression.stringNumberRegExMask}
+                                 validationformat={fieldConstants.ValidationsExpression.stringNumberRegExMask}                                                                   
+                                 className={fieldConstants.FieldAttributes.homeZip.class}
+                                onValueChange={this.onInputChange.bind(this, fieldConstants.FieldAttributes.homeZip.name)}
+                                textBoxClass = {fieldConstants.textBox100Percent}
+                                labelClass={this.state.requiredFields.homeZip.required ? fieldConstants.labelClass : ''} 
+                                inputDisabled={this.state.requiredFields.homeZip.disabled}
+                            />  
+                            }
+                   </div>
+                   </div>
+                   <div style={styles.column25}>    
+                   <div style={styles.margin1Percent} id="countryData">            
+                   <Field      
+                           label={fieldConstants.FieldAttributes.homeCountryName.label}
+                           name={fieldConstants.FieldAttributes.homeCountryName.name}   
+                           editable ={false}
+                           type="select"                        
+                           menuItems={this.state.countryData} 
+                           value={this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL ? fieldConstants.DEFAULT_COUNTRY : ''}
+                           defaultItem ={this.props.tabIndex !== Constants.ADP_CONTACT_TAB ? {label:this.state.Contact.homeCountryName, value:this.state.Contact.homeCountryName} : ''}
+                           showPlaceholder ={fieldConstants.DEFAULT_COUNTRY}
+                           onValueChange={this.onInputChange.bind(this,fieldConstants.FieldAttributes.homeCountryName.name)} 
+                           isRequired={this.state.requiredFields.homeCountryName.required}
+                           labelClass={this.state.requiredFields.homeCountryName.required ? fieldConstants.labelClass : ''}
+                           disabled={this.state.requiredFields.homeCountryName.required ? false : true}
+                           tabIndex={this.props.contactTabs[this.props.tabIndex] !== Constants.CONTACT_TYPES.INTERNAL ? 9 : -1}
+                           requiredError={this.state.Contact.homeCountryName ? false : true}
+                           inputDisabled={true}
+                           /> 
+                   </div>
+               </div>
+               </div>
+               </fieldset>
+
+           </div>
+                </div>
+            </div>
+            }
+            </div>
+    )
+    }
+}
+
+
+ContactFormEdit.childContextTypes = {
+    form: PropTypes.object,
+    router: PropTypes.isRequired,
+    contactType: PropTypes.object
+};
+
+ContactFormEdit.contextTypes = {
+    router: PropTypes.isRequired,
+    contactType: PropTypes.object,
+
+};
+ContactFormEdit.propTypes = {
+    country: PropTypes.object,
+    sessionStore: PropTypes.object,
+    match: PropTypes.object,
+    editContacts: PropTypes.func,
+    UpdateAddEditExistingContacts: PropTypes.func,
+    history: PropTypes.func,
+    tabIndex: PropTypes.string,
+    editSuccess: PropTypes.string,
+    editContactFailure: PropTypes.any,
+    appConfig: PropTypes.string,
+    contactTypes: PropTypes.object,
+    contactDetail: PropTypes.object,
+    clearEdit: PropTypes.func,
+    AddSuccess: PropTypes.string,
+    EditContactFailure: PropTypes.string,
+    EditFromExistingContacts : PropTypes.func,
+    contactspropValue : PropTypes.object,
+    contactTabs: PropTypes.object,
+    addGaEvent: PropTypes.any,
+    contacts :PropTypes.array,
+}
+
+const mapStateToProps = state => ({
+    country: state.ContactsStore.country,
+    contactTypes: state.ContactsStore.contactCategory,
+    sessionStore: state.SessionStore,
+    editSuccess: state.ContactsStore.editSuccess,
+    editContactFailure: state.ContactsStore.editContactFailure,    
+    addToExistingSuccess :   state.ContactsStore.addToExistingSuccess,  
+    appConfig: state.AppConfigStore,
+    contactTabs: state.ContactsStore.contactTabs,
+    contacts:state.ContactsStore.contacts,
+
+});
+
+const mapDispatchToProps = (dispatch) => ({
+
+editContacts: bindActionCreators(editContacts,dispatch),
+UpdateAddEditExistingContacts: bindActionCreators(UpdateAddEditExistingContacts,dispatch),
+clearEdit : bindActionCreators(ActionCreators.clearEditSuccess, dispatch),
+EditContactFailure: bindActionCreators(ActionCreators.editContactFailure, dispatch),
+EditFromExistingContacts: bindActionCreators(EditFromExistingContacts, dispatch),
+addGaEvent: bindActionCreators(addGaEvent, dispatch)
+})
+
+export default withRouter(connect(mapStateToProps, mapDispatchToProps) (Radium(ContactFormEdit) ));
